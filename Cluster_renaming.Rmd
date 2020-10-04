@@ -1,0 +1,101 @@
+---
+title: "Cluster_renaming"
+author: "Rebekah Langston"
+date: "10/4/2020"
+output: html_document
+---
+
+# Note: Completed on NIH supercomputer Biowulf
+
+# Load necessary packages
+```{r}
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+```
+
+# Load clustered object
+```{r}
+load("output/FC_Set15_SeuratAnalysis_clustered.Rdata")
+frontal.integrated  # 117,632 nuclei
+```
+
+# Rename clusters based on marker gene expression
+```{r}
+DefaultAssay(frontal.integrated) <- "SCT"
+
+# Save numerical cluster IDs before renaming
+frontal.integrated$num.ident <- Idents(object = frontal.integrated)
+
+# Exclude clusters with markers of more than one cell type
+## Mixed glial: 31, 47
+## Mixed neuronal: 37
+## Mixed: 35, 53
+frontal.integrated <- subset(frontal.integrated, idents = c(31, 35, 37, 47, 53), invert = TRUE)
+frontal.integrated  # 113,520 nuclei ...-4112 nuclei (3.5%...likely represents some doublets)
+
+# Name OPC and ODC
+frontal.integrated <- RenameIdents(frontal.integrated, `3` = "OPC.3", `44` = "OPC.44", `2` = "ODC.2", `7` = "ODC.7",
+                                   `8` = "ODC.8", `9` = "ODC.9", `12` = "ODC.12", `29` = "ODC.29")
+
+# Name MGL and AST
+frontal.integrated <- RenameIdents(frontal.integrated, `14` = "AST.14", `15` = "AST.15", `18` = "AST.18", `13` = "MGL.13", `25` = "MGL.25")
+
+# Name EC 
+frontal.integrated <- RenameIdents(frontal.integrated, `26` = "EC.26", `30` = "EC.30", `46` = "EC.46", `49` = "EC.49")
+
+# Name ExN
+frontal.integrated <- RenameIdents(frontal.integrated, `0` = "ExN.0", `1` = "ExN.1", `4` = "ExN.4", `5` = "ExN.5",
+                                   `6` = "ExN.6", `10` = "ExN.10", `16` = "ExN.16", `17` = "ExN.17", `19` = "ExN.19", 
+                                   `21` = "ExN.21", `32` = "ExN.32", `33` = "ExN.33", `34` = "ExN.34", `39` = "ExN.39", 
+                                   `41` = "ExN.41", `45` = "ExN.45", `48` = "ExN.48", `52` = "ExN.52")
+
+# Name InN
+frontal.integrated <- RenameIdents(frontal.integrated, `11` = "InN.11", `20` = "InN.20", `22` = "InN.22", `23` = "InN.23", 
+                                   `24` = "InN.24", `27` = "InN.27", `28` = "InN.28", `36` = "InN.36", `38` = "InN.38", 
+                                   `40` = "InN.40", `42` = "InN.42", `43` = "InN.43", `50` = "InN.50", `51` = "InN.51")
+
+# Save assigned cell types
+frontal.integrated$celltype <- Idents(object = frontal.integrated)
+```
+
+# Now add broad cell type categories
+```{r}
+# OPC and ODC
+frontal.integrated <- RenameIdents(frontal.integrated, `OPC.3` = "OPC", `OPC.44` = "OPC", `ODC.2` = "ODC", `ODC.7` = "ODC",
+                                   `ODC.8` = "ODC", `ODC.9` = "ODC", `ODC.12` = "ODC", `ODC.29` = "ODC")
+
+# MGL and AST
+frontal.integrated <- RenameIdents(frontal.integrated, `AST.14` = "AST", `AST.15` = "AST", `AST.18` = "AST", `MGL.13` = "MGL", `MGL.25` = "MGL")
+
+# EC
+frontal.integrated <- RenameIdents(frontal.integrated, `EC.26` = "EC", `EC.30` = "EC", `EC.46` = "EC", `EC.49` = "EC")
+
+# ExN
+frontal.integrated <- RenameIdents(frontal.integrated, `ExN.0` = "ExN", `ExN.1` = "ExN", `ExN.4` = "ExN", `ExN.5` = "ExN",
+                                   `ExN.6` = "ExN", `ExN.10` = "ExN", `ExN.16` = "ExN", `ExN.17` = "ExN", `ExN.19` = "ExN", 
+                                   `ExN.21` = "ExN", `ExN.32` = "ExN", `ExN.33` = "ExN", `ExN.34` = "ExN", `ExN.39` = "ExN", 
+                                   `ExN.41` = "ExN", `ExN.45` = "ExN", `ExN.48` = "ExN", `ExN.52` = "ExN")
+
+# InN
+frontal.integrated <- RenameIdents(frontal.integrated, `InN.11` = "InN", `InN.20` = "InN", `InN.22` = "InN", `InN.23` = "InN", 
+                                   `InN.24` = "InN", `InN.27` = "InN", `InN.28` = "InN", `InN.36` = "InN", `InN.38` = "InN", 
+                                   `InN.40` = "InN", `InN.42` = "InN", `InN.43` = "InN", `InN.50` = "InN", `InN.51` = "InN")
+
+# Save broad cell type groups
+frontal.integrated$broadcelltype <- Idents(object = frontal.integrated)
+
+#save(file = "output/FC_Set15_SeuratAnalysis_named.Rdata", object = frontal.integrated)
+```
+
+# Make heatmap to verify appropriate marker genes expressed in each cell type
+```{r}
+Idents(frontal.integrated) <- "celltype"
+
+marker.genes <- c("SLC1A2", "SLC1A3", "GFAP", "AQP4", "CLDN5", "COLEC12", "OLIG2", "PDGFRA", "VCAN", "PLP1", "MOBP", "ST18", 
+                  "CSF1R", "P2RY12", "ITGAM", "CX3CR1", "CUX2", "SLC17A7", "RORB", "THEMIS", "GAD1", "SST", "VIP", "PVALB")
+
+p1 <- DoHeatmap(subset(frontal.integrated, downsample = 200), features = marker.genes, size = 3, draw.lines = F)
+ggsave("plots/markers/Heatmap_marker_genes.png", plot = p1, width = 14, height = 6)
+```
+
