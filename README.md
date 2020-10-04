@@ -1,5 +1,5 @@
-# *Project*: Study of a microglia-specific eQTL
-## *Author*: Rebekah Langston
+# Project: Study of a microglia-specific eQTL
+## Author: Rebekah Langston
 
 
 This repository contains R and command line scripts used to produce the results presented in our manuscript titled "Association of a common genetic variant with Parkinson's Disease is driven by microglia-specific modulation of LRRK2 expression".
