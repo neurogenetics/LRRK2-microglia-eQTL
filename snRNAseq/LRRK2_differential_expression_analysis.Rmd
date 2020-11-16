@@ -1,0 +1,216 @@
+---
+title: "snRNAseq_LRRK2_differential_expression_analyses"
+author: "Rebekah Langston"
+date: "11/16/2020"
+output: html_document
+---
+
+# Completed in part on NIH Biowulf cluster http://hpc.nih.gov 
+
+# Load necessary packages
+```{r}
+library(Seurat)
+library(tidyverse)
+library(ggpubr)
+```
+
+# Load clustered, named Seurat object
+```{r}
+load("output/FC_Set15_SeuratAnalysis_named.Rdata")
+frontal.integrated
+
+Idents(frontal.integrated) <- "celltype"
+```
+
+# Check % cells in which LRRK2 was detected per cluster
+```{r}
+p <- DotPlot(object = frontal.integrated, features = "LRRK2")
+p$data
+```
+
+# Look at LRRK2 expression by genotype for cell populations of interest
+```{r}
+## Relevel object@ident
+order_rs4798 <- c("CC", "CT", "TT") # Define an order of cluster identities
+frontal.integrated$rs76904798 <- factor(x = frontal.integrated$rs76904798, levels = order_rs4798)
+
+MGL.13 <- subset(frontal.integrated, idents = "MGL.13")
+MGL.13 # 3311 nuclei
+Idents(MGL.13) <- "rs76904798"
+VlnPlot(MGL.13, "LRRK2", pt.size = 0, cols = c("yellow", "orchid1", "turquoise3"))
+```
+
+
+# Write table describing genotype info about nuclei contributing to each cluster
+```{r}
+frontal.integrated$celltype.rs76904798 <- paste(Idents(frontal.integrated), frontal.integrated$rs76904798, sep = "_")
+Idents(frontal.integrated) <- "celltype.rs76904798"
+write.csv(table(Idents(frontal.integrated)), file = "output/CCvsCTvsTT_nuclei_per_celltype_per_genotype.csv")
+```
+
+# Look at genes expressed differentially between nuclei of different genotypes in a cluster of interest
+```{r}
+rs.effectMGL.13_CCvsTT <- FindMarkers(frontal.integrated, ident.1 = "MGL.13_CC", ident.2 = "MGL.13_TT", verbose = FALSE)
+rs.effectMGL.13_CCvsCT <- FindMarkers(frontal.integrated, ident.1 = "MGL.13_CC", ident.2 = "MGL.13_CT", verbose = FALSE)
+rs.effectMGL.13_CTvsTT <- FindMarkers(frontal.integrated, ident.1 = "MGL.13_CT", ident.2 = "MGL.13_TT", verbose = FALSE)
+
+write.csv(rs.effectMGL.13_CCvsTT, file = "CCvsCTvsTT_Set15_Analysis/output/rs_effect_MGL13_CCvsTT_markers.csv")
+write.csv(rs.effectMGL.13_CCvsCT, file = "CCvsCTvsTT_Set15_Analysis/output/rs_effect_MGL13_CCvsCT_markers.csv")
+write.csv(rs.effectMGL.13_CTvsTT, file = "CCvsCTvsTT_Set15_Analysis/output/rs_effect_MGL13_CTvsTT_markers.csv")
+```
+
+# Compute average (normalized) expression of gene of interest per donor in each cluster
+```{r}
+CCvsCTvsTT_LRRK2_av.expression <- AverageExpression(frontal.integrated, "SCT", "LRRK2", add.ident = "orig.ident")
+write.csv(CCvsCTvsTT_LRRK2_av.expression, file = "output/CCvsCTvsTT_LRRK2_per_celltype.csv")
+```
+
+
+# Remainder can be completed locally
+
+# Read in table of average LRRK2 expression by cluster by donorID
+```{r}
+CCvsCTvsTT_LRRK2 <- read.csv("~/Desktop/Set15_FC_CCvsTT_snRNAseq/output/CCvsCTvsTT_LRRK2_per_celltype.csv")
+CCvsCTvsTT_LRRK2 <- as_tibble(CCvsCTvsTT_LRRK2)
+```
+
+# Pull out cluster info for each donor
+```{r}
+S1027_TT <- CCvsCTvsTT_LRRK2 %>% select(contains("S1027"))
+S4022_TT <- CCvsCTvsTT_LRRK2 %>% select(contains("S4022"))
+S5079_TT <- CCvsCTvsTT_LRRK2 %>% select(contains("S5079"))
+S4924_TT <- CCvsCTvsTT_LRRK2 %>% select(contains("S4924"))
+S1230_TT <- CCvsCTvsTT_LRRK2 %>% select(contains("S1230"))
+
+S1135_CT <- CCvsCTvsTT_LRRK2 %>% select(contains("S1135"))
+S1672_CT <- CCvsCTvsTT_LRRK2 %>% select(contains("S1672"))
+S5123_CT <- CCvsCTvsTT_LRRK2 %>% select(contains("S5123"))
+S4724_CT <- CCvsCTvsTT_LRRK2 %>% select(contains("S4724"))
+S1209_CT <- CCvsCTvsTT_LRRK2 %>% select(contains("S1209"))
+
+S1363_CC <- CCvsCTvsTT_LRRK2 %>% select(contains("S1363"))
+S630_CC <- CCvsCTvsTT_LRRK2 %>% select(contains("S630"))
+S1584_CC <- CCvsCTvsTT_LRRK2 %>% select(contains("S1584"))
+S794_CC <- CCvsCTvsTT_LRRK2 %>% select(contains("S794"))
+S1274_CC <- CCvsCTvsTT_LRRK2 %>% select(contains("S1274"))
+```
+
+# Rename columns to be cluster ID only, add donor and genotype as columns
+```{r}
+names(S1027_TT) = gsub(pattern = "SCT.", replacement = "", x = names(S1027_TT))
+names(S1027_TT) = gsub(pattern = "_.*", replacement = "", x = names(S1027_TT))
+S1027_TT <- add_column(S1027_TT, Donor = "S1027", Genotype = "TT", .before = TRUE)
+
+names(S4022_TT) = gsub(pattern = "SCT.", replacement = "", x = names(S4022_TT))
+names(S4022_TT) = gsub(pattern = "_.*", replacement = "", x = names(S4022_TT))
+S4022_TT <- add_column(S4022_TT, Donor = "S4022", Genotype = "TT", .before = TRUE)
+
+names(S5079_TT) = gsub(pattern = "SCT.", replacement = "", x = names(S5079_TT))
+names(S5079_TT) = gsub(pattern = "_.*", replacement = "", x = names(S5079_TT))
+S5079_TT <- add_column(S5079_TT, Donor = "S5079", Genotype = "TT", .before = TRUE)
+
+names(S4924_TT) = gsub(pattern = "SCT.", replacement = "", x = names(S4924_TT))
+names(S4924_TT) = gsub(pattern = "_.*", replacement = "", x = names(S4924_TT))
+S4924_TT <- add_column(S4924_TT, Donor = "S4924", Genotype = "TT", .before = TRUE)
+
+names(S1230_TT) = gsub(pattern = "SCT.", replacement = "", x = names(S1230_TT))
+names(S1230_TT) = gsub(pattern = "_.*", replacement = "", x = names(S1230_TT))
+S1230_TT <- add_column(S1230_TT, Donor = "S1230", Genotype = "TT", .before = TRUE)
+
+names(S1135_CT) = gsub(pattern = "SCT.", replacement = "", x = names(S1135_CT))
+names(S1135_CT) = gsub(pattern = "_.*", replacement = "", x = names(S1135_CT))
+S1135_CT <- add_column(S1135_CT, Donor = "S1135", Genotype = "CT", .before = TRUE)
+
+names(S1672_CT) = gsub(pattern = "SCT.", replacement = "", x = names(S1672_CT))
+names(S1672_CT) = gsub(pattern = "_.*", replacement = "", x = names(S1672_CT))
+S1672_CT <- add_column(S1672_CT, Donor = "S1672", Genotype = "CT", .before = TRUE)
+
+names(S5123_CT) = gsub(pattern = "SCT.", replacement = "", x = names(S5123_CT))
+names(S5123_CT) = gsub(pattern = "_.*", replacement = "", x = names(S5123_CT))
+S5123_CT <- add_column(S5123_CT, Donor = "S5123", Genotype = "CT", .before = TRUE)
+
+names(S4724_CT) = gsub(pattern = "SCT.", replacement = "", x = names(S4724_CT))
+names(S4724_CT) = gsub(pattern = "_.*", replacement = "", x = names(S4724_CT))
+S4724_CT <- add_column(S4724_CT, Donor = "S4724", Genotype = "CT", .before = TRUE)
+
+names(S1209_CT) = gsub(pattern = "SCT.", replacement = "", x = names(S1209_CT))
+names(S1209_CT) = gsub(pattern = "_.*", replacement = "", x = names(S1209_CT))
+S1209_CT <- add_column(S1209_CT, Donor = "S1209", Genotype = "CT", .before = TRUE)
+
+names(S1363_CC) = gsub(pattern = "SCT.", replacement = "", x = names(S1363_CC))
+names(S1363_CC) = gsub(pattern = "_.*", replacement = "", x = names(S1363_CC))
+S1363_CC <- add_column(S1363_CC, Donor = "S1363", Genotype = "CC", .before = TRUE)
+
+names(S630_CC) = gsub(pattern = "SCT.", replacement = "", x = names(S630_CC))
+names(S630_CC) = gsub(pattern = "_.*", replacement = "", x = names(S630_CC))
+S630_CC <- add_column(S630_CC, Donor = "S630", Genotype = "CC", .before = TRUE)
+
+names(S1584_CC) = gsub(pattern = "SCT.", replacement = "", x = names(S1584_CC))
+names(S1584_CC) = gsub(pattern = "_.*", replacement = "", x = names(S1584_CC))
+S1584_CC <- add_column(S1584_CC, Donor = "S1584", Genotype = "CC", .before = TRUE)
+
+names(S794_CC) = gsub(pattern = "SCT.", replacement = "", x = names(S794_CC))
+names(S794_CC) = gsub(pattern = "_.*", replacement = "", x = names(S794_CC))
+S794_CC <- add_column(S794_CC, Donor = "S794", Genotype = "CC", .before = TRUE)
+
+names(S1274_CC) = gsub(pattern = "SCT.", replacement = "", x = names(S1274_CC))
+names(S1274_CC) = gsub(pattern = "_.*", replacement = "", x = names(S1274_CC))
+S1274_CC <- add_column(S1274_CC, Donor = "S1274", Genotype = "CC", .before = TRUE)
+```
+
+# Join
+```{r echo=T, results = "hide", message = FALSE, warning = FALSE}
+CCvsCTvsTT_LRRK2_sorted <- full_join(S1027_TT, S4022_TT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S5079_TT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S4924_TT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S1230_TT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S1135_CT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S1672_CT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S5123_CT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S4724_CT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S1209_CT)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S1363_CC)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S630_CC)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S1584_CC)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S794_CC)
+CCvsCTvsTT_LRRK2_sorted <- full_join(CCvsCTvsTT_LRRK2_sorted, S1274_CC)
+```
+
+# Make boxplot for population of interest
+```{r}
+MGL.13 <- CCvsCTvsTT_LRRK2_sorted %>% select(Donor, Genotype, MGL.13)
+
+ggplot(MGL.13, aes(Genotype, MGL.13)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  ylim(0, 1) +
+  labs(title = "LRRK2 expression per Donor in MGL.13", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Perform simple linear regression modeling
+```{r}
+MGL.13 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "MGL.13",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 1.5, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+```{r}
+MGL.13num <- MGL.13 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2))
+
+ct.MGL13num <- cor.test(MGL.13num$Num.min.alleles, MGL.13num$MGL.13, method = "pearson")
+print(ct.MGL13num, digits = 10)
+```
+
+
+
