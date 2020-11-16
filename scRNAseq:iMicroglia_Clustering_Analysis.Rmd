@@ -1,0 +1,231 @@
+---
+title: "iMicroglia_Clustering_Analysis"
+author: "Rebekah Langston"
+date: "11/16/2020"
+output: html_document
+---
+
+# Load necessary packages
+```{r, message=F, warning=F, results='hide', echo=T}
+library(Seurat)
+library(sctransform)
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+library(Hmisc)
+```
+
+# Set up future for parallelization 
+```{r, message=F, warning=F, results='hide', echo=T}
+library(future)
+library(future.apply)
+plan("multisession", workers = 4)
+options(future.globals.maxSize = 2000 * 1024^2)
+```
+
+# Read in data
+```{r}
+PPMI3453.data <- Read10X(data.dir = "data/PPMI3453_iMicroglia/outs/filtered_feature_bc_matrix/")
+PPMI4101.data <- Read10X(data.dir = "data/PPMI4101_iMicroglia/outs/filtered_feature_bc_matrix/")
+```
+
+# Create Seurat objects
+```{r}
+PPMI3453 <- CreateSeuratObject(counts = PPMI3453.data, min.cells = 3, min.features = 500, project = "PPMI_3453")
+PPMI4101 <- CreateSeuratObject(counts = PPMI4101.data, min.cells = 3, min.features = 500, project = "PPMI_4101")
+```
+
+# Add genotype at rs76904798
+```{r}
+PPMI3453$rs76904798 <- "CC"
+PPMI4101$rs76904798 <- "CT"
+```
+
+# Normalize (SCTransform) and Integrate
+```{r, message=F, warning=F, results='hide', echo=T}
+iMicroglia.list <- c(PPMI3453, PPMI4101)
+iMicroglia.list <- future_lapply(X = iMicroglia.list, FUN = function(x) {
+  x <- PercentageFeatureSet(x, pattern = "^MT-", col.name = "percent.mt")
+  x <- SCTransform(x, vars.to.regress = "percent.mt", verbose = FALSE)
+})
+
+iMicroglia.features <- SelectIntegrationFeatures(object.list = iMicroglia.list)
+iMicroglia.list <- future_lapply(X = iMicroglia.list, FUN = function(x) {
+  x <- RunPCA(x, features = iMicroglia.features, verbose = FALSE)
+})
+
+iMicroglia.list <- PrepSCTIntegration(object.list = iMicroglia.list, anchor.features = iMicroglia.features)
+iMicroglia.anchors <- FindIntegrationAnchors(object.list = iMicroglia.list, normalization.method = "SCT", anchor.features = iMicroglia.features, reduction = "rpca", dims = 1:30)
+iMicroglia.integrated <- IntegrateData(anchorset = iMicroglia.anchors, normalization.method = "SCT", dims = 1:30)
+```
+
+# Check out integrated object
+```{r}
+VlnPlot(object = iMicroglia.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), pt.size = 0, ncol = 3, cols = c("skyblue", "gold"))
+```
+
+```{r}
+p1 <- FeatureScatter(object = iMicroglia.integrated, feature1 = "nCount_RNA", feature2 = "percent.mt", cols = c("skyblue", "gold")) + NoLegend()
+p2 <- FeatureScatter(object = iMicroglia.integrated, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", cols = c("skyblue", "gold")) + NoLegend()
+plot_grid(p1, p2)
+```
+
+# Cluster
+```{r}
+iMicroglia.integrated <- RunPCA(iMicroglia.integrated, verbose = FALSE)
+iMicroglia.integrated <- RunUMAP(iMicroglia.integrated, dims = 1:30, verbose = FALSE)
+iMicroglia.integrated <- FindNeighbors(iMicroglia.integrated, dims = 1:30, verbose = FALSE)
+iMicroglia.integrated <- FindClusters(iMicroglia.integrated, resolution = 0.2)
+```
+
+```{r}
+DimPlot(iMicroglia.integrated, reduction = "umap", label = TRUE) + NoLegend()
+```
+
+```{r}
+prop.table(table(Idents(iMicroglia.integrated), iMicroglia.integrated$orig.ident), margin = 2)
+```
+
+# Find marker genes that define each cluster
+```{r}
+iMicroglia.integrated.markers <- FindAllMarkers(object = iMicroglia.integrated, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+
+top10.iMicroglia.integrated <- iMicroglia.integrated.markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+top10.iMicroglia.integrated
+```
+
+# Rename clusters
+```{r}
+# Make normalized SCT assay the default
+DefaultAssay(iMicroglia.integrated) <- "SCT"
+
+iMicroglia.integrated$num.ident <- Idents(iMicroglia.integrated)
+
+iMicroglia.integrated <- RenameIdents(iMicroglia.integrated, `0` = "iMGL_0", `1` = "iMGL_1", `2` = "iMGL_2", `3` = "iMGL_3", `4` = "iMGL_4", `5` = "iMGL_5")
+
+iMicroglia.integrated$cluster <- Idents(iMicroglia.integrated)
+```
+
+# Look at LRRK2 expression
+```{r}
+FeaturePlot(iMicroglia.integrated, features = "LRRK2", cols = c("gray90", "magenta1"), label = TRUE, order = TRUE)
+```
+
+# Make a heatmap to look at average expression of microglia markers in each cluster
+```{r}
+cluster.averages <- AverageExpression(iMicroglia.integrated, return.seurat = TRUE)
+
+marker.genes <- c("CSF1R", "IL1B", "FCGR2A", "P2RY12", "ITGAM", "CX3CR1", "TGFB1", "TNF", "CD68", "IL8", "CD86", "CD74", "TMEM119", "LRRK2")
+
+DoHeatmap(cluster.averages, features = marker.genes, size = 3, draw.lines = FALSE) +
+  scale_fill_gradientn(colors = c("#0000FF", "#CCFFFF", "#FF3300"))
+```
+
+# Compare gene expression between cells differentiated from each cell line
+```{r}
+cluster.averages.line <- AverageExpression(iMicroglia.integrated, "SCT", return.seurat = TRUE, add.ident = "orig.ident")
+
+p5 <- CellScatter(cluster.averages.line, cell1 = "iMGL_0_PPMI_3453", cell2 = "iMGL_0_PPMI_4101")
+p6 <- CellScatter(cluster.averages.line, cell1 = "iMGL_1_PPMI_3453", cell2 = "iMGL_1_PPMI_4101")
+p7 <- CellScatter(cluster.averages.line, cell1 = "iMGL_2_PPMI_3453", cell2 = "iMGL_2_PPMI_4101")
+p8 <- CellScatter(cluster.averages.line, cell1 = "iMGL_3_PPMI_3453", cell2 = "iMGL_3_PPMI_4101")
+p9 <- CellScatter(cluster.averages.line, cell1 = "iMGL_4_PPMI_3453", cell2 = "iMGL_4_PPMI_4101")
+p10 <- CellScatter(cluster.averages.line, cell1 = "iMGL_5_PPMI_3453", cell2 = "iMGL_5_PPMI_4101")
+
+p11 <- ggarrange(p5, p6, p7, p8, p9, p10, widths = c(1, 1, 1, 1, 1, 1))
+p11
+```
+
+# Read in table of (SCT-) normalized gene expression per line and perform correlation test separately
+```{r}
+cluster.averages.line.df <- AverageExpression(iMicroglia.integrated, "SCT", add.ident = "orig.ident")$SCT
+write.csv(file = "output/cluster_averages_per_line.csv", cluster.averages.line.df)
+
+av.exp <- read.csv("output/cluster_averages_per_line.csv", header = T, row.names = 1)
+```
+
+## iMGL0
+```{r}
+av.exp.iMGL0 <- av.exp %>% select(iMGL_0_PPMI_3453, iMGL_0_PPMI_4101) %>% rename(PPMI_3453 = iMGL_0_PPMI_3453, PPMI_4101 = iMGL_0_PPMI_4101)
+
+rc.iMGL0 <- rcorr(as.matrix(av.exp.iMGL0), type="pearson")
+ct.iMGL0 <- cor.test(av.exp.iMGL0$PPMI_3453, av.exp.iMGL0$PPMI_4101, method = "pearson")
+
+rc.iMGL0$r
+```
+
+```{r}
+print(ct.iMGL0, digits = 10)
+```
+
+## iMGL1
+```{r}
+av.exp.iMGL1 <- av.exp %>% select(iMGL_1_PPMI_3453, iMGL_1_PPMI_4101) %>% rename(PPMI_3453 = iMGL_1_PPMI_3453, PPMI_4101 = iMGL_1_PPMI_4101)
+
+rc.iMGL1 <- rcorr(as.matrix(av.exp.iMGL1), type="pearson")
+ct.iMGL1 <- cor.test(av.exp.iMGL1$PPMI_3453, av.exp.iMGL1$PPMI_4101, method = "pearson")
+
+rc.iMGL1$r
+```
+
+```{r}
+print(ct.iMGL1, digits = 10)
+```
+
+## iMGL2
+```{r}
+av.exp.iMGL2 <- av.exp %>% select(iMGL_2_PPMI_3453, iMGL_2_PPMI_4101) %>% rename(PPMI_3453 = iMGL_2_PPMI_3453, PPMI_4101 = iMGL_2_PPMI_4101)
+
+rc.iMGL2 <- rcorr(as.matrix(av.exp.iMGL2), type="pearson")
+ct.iMGL2 <- cor.test(av.exp.iMGL2$PPMI_3453, av.exp.iMGL2$PPMI_4101, method = "pearson")
+
+rc.iMGL2$r
+```
+
+```{r}
+print(ct.iMGL2, digits = 10)
+```
+
+## iMGL3
+```{r}
+av.exp.iMGL3 <- av.exp %>% select(iMGL_3_PPMI_3453, iMGL_3_PPMI_4101) %>% rename(PPMI_3453 = iMGL_3_PPMI_3453, PPMI_4101 = iMGL_3_PPMI_4101)
+
+rc.iMGL3 <- rcorr(as.matrix(av.exp.iMGL3), type="pearson")
+ct.iMGL3 <- cor.test(av.exp.iMGL3$PPMI_3453, av.exp.iMGL3$PPMI_4101, method = "pearson")
+
+rc.iMGL3$r
+```
+
+```{r}
+print(ct.iMGL3, digits = 10)
+```
+
+## iMGL4
+```{r}
+av.exp.iMGL4 <- av.exp %>% select(iMGL_4_PPMI_3453, iMGL_4_PPMI_4101) %>% rename(PPMI_3453 = iMGL_4_PPMI_3453, PPMI_4101 = iMGL_4_PPMI_4101)
+
+rc.iMGL4 <- rcorr(as.matrix(av.exp.iMGL4), type="pearson")
+ct.iMGL4 <- cor.test(av.exp.iMGL4$PPMI_3453, av.exp.iMGL4$PPMI_4101, method = "pearson")
+
+rc.iMGL4$r
+```
+
+```{r}
+print(ct.iMGL4, digits = 10)
+```
+
+## iMGL5
+```{r}
+av.exp.iMGL5 <- av.exp %>% select(iMGL_5_PPMI_3453, iMGL_5_PPMI_4101) %>% rename(PPMI_3453 = iMGL_5_PPMI_3453, PPMI_4101 = iMGL_5_PPMI_4101)
+
+rc.iMGL5 <- rcorr(as.matrix(av.exp.iMGL5), type="pearson")
+ct.iMGL5 <- cor.test(av.exp.iMGL5$PPMI_3453, av.exp.iMGL5$PPMI_4101, method = "pearson")
+
+rc.iMGL5$r
+```
+
+```{r}
+print(ct.iMGL5, digits = 10)
+```
+
+
