@@ -5,6 +5,10 @@ date: "11/16/2020"
 output: html_document
 ---
 
+# For analysis of qPCR and western blot data generated from six paired iMicroglia differentiations
+## Measurements made on 12 cell lines total
+
+# Load necessary packages
 ```{r}
 library(tidyverse)
 library(grid)
