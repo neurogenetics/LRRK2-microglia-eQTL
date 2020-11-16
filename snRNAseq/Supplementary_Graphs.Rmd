@@ -1,0 +1,130 @@
+---
+title: "Supplementary_Graphs"
+author: "Rebekah Langston"
+date: "11/16/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(pheatmap)
+library(pals)
+```
+
+# Make a plot showing what proportion of each celltype is from each donor
+## Read in table produced from clustered, named object with: 
+### write.csv(prop.table(table(Idents(frontal.integrated), frontal.integrated$orig.ident), margin = 2), file = "output/CCvsCTvsTT_prop_nuclei_per_sample_per_celltype.csv")
+```{r}
+prop_donor <- read.csv("output/CCvsCTvsTT_prop_nuclei_per_sample_per_celltype.csv") %>% rename(Celltype = X)
+```
+
+```{r}
+prop_630 <- prop_donor %>% select(Celltype, S630) %>% mutate(Donor = "S630") %>% mutate(Genotype = "CC") %>%
+  rename(Proportion = S630)
+prop_794 <- prop_donor %>% select(Celltype, S794) %>% mutate(Donor = "S794") %>% mutate(Genotype = "CC") %>%
+  rename(Proportion = S794)
+prop_1274 <- prop_donor %>% select(Celltype, S1274) %>% mutate(Donor = "S1274") %>% mutate(Genotype = "CC") %>%
+  rename(Proportion = S1274)
+prop_1363 <- prop_donor %>% select(Celltype, S1363) %>% mutate(Donor = "S1363") %>% mutate(Genotype = "CC") %>%
+  rename(Proportion = S1363)
+prop_1584 <- prop_donor %>% select(Celltype, S1584) %>% mutate(Donor = "S1584") %>% mutate(Genotype = "CC") %>%
+  rename(Proportion = S1584)
+
+prop_1135 <- prop_donor %>% select(Celltype, S1135) %>% mutate(Donor = "S1135") %>% mutate(Genotype = "CT") %>%
+  rename(Proportion = S1135)
+prop_1209 <- prop_donor %>% select(Celltype, S1209) %>% mutate(Donor = "S1209") %>% mutate(Genotype = "CT") %>%
+  rename(Proportion = S1209)
+prop_1672 <- prop_donor %>% select(Celltype, S1672) %>% mutate(Donor = "S1672") %>% mutate(Genotype = "CT") %>%
+  rename(Proportion = S1672)
+prop_4724 <- prop_donor %>% select(Celltype, S4724) %>% mutate(Donor = "S4724") %>% mutate(Genotype = "CT") %>%
+  rename(Proportion = S4724)
+prop_5123 <- prop_donor %>% select(Celltype, S5123) %>% mutate(Donor = "S5123") %>% mutate(Genotype = "CT") %>%
+  rename(Proportion = S5123)
+
+prop_4022 <- prop_donor %>% select(Celltype, S4022) %>% mutate(Donor = "S4022") %>% mutate(Genotype = "TT") %>%
+  rename(Proportion = S4022)
+prop_1027 <- prop_donor %>% select(Celltype, S1027) %>% mutate(Donor = "S1027") %>% mutate(Genotype = "TT") %>%
+  rename(Proportion = S1027)
+prop_1230 <- prop_donor %>% select(Celltype, S1230) %>% mutate(Donor = "S1230") %>% mutate(Genotype = "TT") %>%
+  rename(Proportion = S1230)
+prop_4924 <- prop_donor %>% select(Celltype, S4924) %>% mutate(Donor = "S4924") %>% mutate(Genotype = "TT") %>%
+  rename(Proportion = S4924)
+prop_5079 <- prop_donor %>% select(Celltype, S5079) %>% mutate(Donor = "S5079") %>% mutate(Genotype = "TT") %>%
+  rename(Proportion = S5079)
+```
+
+```{r}
+prop_all <- rbind(prop_630, prop_794, prop_1274, prop_1363, prop_1584, prop_1135, prop_1209, prop_1672, prop_4724, prop_5123, prop_4022, prop_1027, prop_1230, prop_4924, prop_5079)
+```
+
+```{r}
+ggplot(prop_all, aes(fill = Donor, y = Proportion, x = Celltype)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_fill_viridis_d() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Proportion of each cell population made up by each donor")
+```
+
+```{r}
+ggplot(prop_all, aes(fill = Genotype, y = Proportion, x = Celltype)) +
+  geom_bar(position = "fill", stat = "identity") +
+  scale_fill_viridis_d(option = "plasma") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Proportion of each cell population made up by each genotype")
+```
+
+
+# Make a heatmap showing marker gene expression in each cell type
+## Read in table of average normalized expression values produced from clustered, named object with:
+### cluster.averages <- AverageExpression(frontal.integrated, assays = "SCT", features = markers, return.seurat = T)
+### clust.av.df <- as.data.frame(as.matrix(cluster.averages@assays$SCT@scale.data))
+### clust.av.df <- rownames_to_column(clust.av.df, var = "Gene")
+### write.csv(file = "output/Set15_marker_genes_scaled_v2.csv", quote = F, row.names = F, clust.av.df)
+```{r}
+gene.exp <- read.csv("./output/Set15_marker_genes_scaled_v2.csv", row.names = 1)
+```
+
+# Create metadata table
+```{r}
+Gene <- factor(markers <- c("GAD1", "GAD2", "SLC6A1", "ERBB4", "GRIK1", "GRIP1", "ADARB2", "SST", "PVALB", "LAMP5", "VIP",
+                            "CXCL14", "CALB2", "RELN", "SYNPR", "FGF13", "SLC17A7", "SATB2", "FAM19A1", "SV2B", "NRGN", "CBLN2",
+                            "LINC00507", "THEMIS", "RORB", "FEZF2", "CUX2", "TLE4", "GLRA3", "TOX", "PDE1A", "VAT1L", "PLP1",
+                            "ST18", "MOBP", "MBP", "OPALIN", "PDGFRA", "LHFPL3", "MYT1", "VCAN", "P2RY12", "CSF1R", "APBB1IP",
+                            "CD74", "SLC1A3", "AQP4", "GFAP", "COL5A3", "ALDH1L1", "CLDN5", "EPAS1", "MECOM", "COLEC12", "PDGFRB",
+                            "VCAM1"
+                            )
+               )
+
+Celltype <- factor(c(rep("GABAergic Neuron", 16), rep("Glutamatergic Neuron", 16), rep("Oligodendrocyte", 5),
+                     rep("Oligodendrocyte Precursor Cell", 4), rep("Microglia", 4), rep("Astrocyte", 5),
+                     rep("Endothelial Cell", 6))
+                   )
+
+anno <- data.frame(Celltype, row.names = Gene)
+```
+
+```{r}
+all(rownames(gene.exp) %in% rownames(anno))
+all(rownames(gene.exp) == rownames(anno))
+```
+
+# Build heatmap
+```{r, fig.height = 9, fig.width = 12}
+pheatmap(gene.exp, 
+         color = ocean.thermal(25),
+         cluster_rows = F,
+         cluster_cols = T,
+         clustering_method = "ward.D2",
+         #gaps_col = 32,
+         angle_col = 45,
+         annotation_row = anno,
+         border_color = NA,
+         fontsize = 10,
+         fontsize_row = 10,
+         height = 20)
+```
+
+
+
