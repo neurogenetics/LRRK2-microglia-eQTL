@@ -1,0 +1,50 @@
+---
+title: "FCsnATACseq_split_by_celltype"
+author: "Rebekah Langston"
+date: "11/20/2020"
+output: html_document
+---
+
+# Load necessary packages
+```{r, message=FALSE, warning=FALSE}
+library(Signac)
+library(Seurat)
+
+library(dplyr)
+library(tidyr)
+```
+
+# Load merged, named FC.atac object
+```{r}
+load("./seurat_objects/FC_atac_named.Rdata")
+FC.atac
+```
+
+```{r}
+FC.atac$celltype <- Idents(FC.atac)
+```
+
+# Fetch cell barcodes + celltype classification and split by sample ID
+```{r}
+named_cell_bcs <- FetchData(object = FC.atac, vars = "celltype")
+named_cell_bcs_all <- tibble::rownames_to_column(named_cell_bcs, var = "barcode")
+named_cell_bcs_all <- separate(named_cell_bcs_all, col = barcode, into = c("ID", "barcode"), sep = "_")
+
+named_cell_bcs_S794 <- named_cell_bcs_all %>% dplyr::filter(ID == "S794")
+named_cell_bcs_S1230 <- named_cell_bcs_all %>% dplyr::filter(ID == "S1230")
+named_cell_bcs_S1274 <- named_cell_bcs_all %>% dplyr::filter(ID == "S1274")
+named_cell_bcs_S5079 <- named_cell_bcs_all %>% dplyr::filter(ID == "S5079")
+```
+
+# Remove sample IDs and write to tab-delimited files
+```{r}
+write.table(named_cell_bcs_S794[2:3], "./output/UMARY794_bcs_celltype.tsv", sep="\t", col.names=F, row.names=F, quote=F)
+
+write.table(named_cell_bcs_S1230[2:3], "./output/UMARY1230_bcs_celltype.tsv", sep="\t", col.names=F, row.names=F, quote=F)
+
+write.table(named_cell_bcs_S1274[2:3], "./output/UMARY1274_bcs_celltype.tsv", sep="\t", col.names=F, row.names=F, quote=F)
+
+write.table(named_cell_bcs_S5079[2:3], "./output/UMARY5079_bcs_celltype.tsv", sep="\t", col.names=F, row.names=F, quote=F)
+```
+
+
