@@ -31,3 +31,5 @@ samtools view -b  -q 10 -@ 20 ./mapped_reads/PPMI_"$SAMPLE"_iMGL_noChrM_noDup.ba
 rm ./mapped_reads/PPMI_"$SAMPLE"_iMGL_noChrM.bam
 rm ./mapped_reads/PPMI_"$SAMPLE"_iMGL_noChrM_noDup.bam
 	
+# Index
+samtools index ./mapped_reads/PPMI_"$SAMPLE"_iMGL_filtered.bam -@ 20
