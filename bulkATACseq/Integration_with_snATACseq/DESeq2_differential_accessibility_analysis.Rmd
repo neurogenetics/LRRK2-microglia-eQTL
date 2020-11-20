@@ -1,0 +1,100 @@
+---
+title: "DESeq2_differential_accessibility_analysis_snATAC_bulkATAC"
+author: "Rebekah Langston"
+date: "11/20/2020"
+output: html_document
+---
+
+```{r, message=F, warning=F}
+library(DESeq2)
+library(dplyr)
+library(tidyr)
+library(pheatmap)
+library(pals)
+library(ggplot2)
+library(ggrepel)
+library(stringr)
+```
+
+# Read in table from DiffBind_ATACseq_bulkATACseq_counts.R and tidy
+```{r}
+counts <- read.csv("./output/snATACseq_bulkATAC_celltype_counts_summ.csv", header = T, row.names = NULL)
+
+# Unite peak coordinates into one column, convert to row.names
+counts.t <- unite(counts, "coord", START:END, sep = "-")
+counts.t <- unite(counts.t, "peak_coord", CHR:coord, sep = "-")
+colnames(counts.t) <- sub("_", ".", colnames(counts.t))
+
+cts <- as.matrix(tibble::column_to_rownames(counts.t, var = "peak.coord"))
+```
+
+# Make metadata table
+```{r}
+population <- colnames(cts)
+
+celltype <- factor(c("Astrocyte", "Endothelial Cell", rep("Glutamatergic Neuron", 3), rep("GABAergic Neuron", 4), "Microglia", rep("Oligodendrocyte", 3), "Oligodendrocyte Precursor Cell", rep("iMicroglia", 4), rep("iFbN", 3)))
+
+source <- factor(c(rep("Brain_FC", 14), rep("iPSC_PPMI", 4), rep("iPSC_33i", 3)))
+
+coldata <- data.frame(population, celltype, source)
+coldata <- tibble::column_to_rownames(coldata, var = "population")
+```
+
+```{r}
+all(rownames(coldata) %in% colnames(cts))
+all(rownames(coldata) == colnames(cts))
+```
+
+# Checkout data
+```{r, message=F, warning=F}
+dds <- DESeqDataSetFromMatrix(countData = cts, colData = coldata, design = ~ celltype)
+dds
+```
+
+# Normalize and transform counts for data visualization
+### If the library size of the samples and therefore their size factors vary widely, the rlog transformation is a better option than VST. Both options produce log2 scale data which has been normalized by the DESeq2 method with respect to library size
+```{r, message=F, warning=F}
+dds <- estimateSizeFactors(dds)
+rld <- rlog(dds, blind = TRUE)
+```
+
+## PCA
+```{r, fig.width=10, fig.height=5}
+plotPCA(rld, intgroup = "celltype")
+```
+
+## Hierarchical clutsering
+```{r, fig.width=8, fig.height=6}
+rld.mat <- assay(rld)
+rld.cor <- cor(rld.mat)
+rld.cor
+```
+
+## Genome-wide accessibility correlation iMGL.3411 vs brain MGL.4
+```{r}
+rld.df <- as.data.frame(rld.mat)
+
+ct.iMGL.3411vsMGL.4 <- cor.test(rld.df$iMGL.3411, rld.df$MGL.4, method = "pearson")
+print(ct.iMGL.3411vsMGL.4, digits = 10)
+```
+
+```{r}
+newCols <- colorRampPalette(pals::alphabet2(length(unique(coldata$celltype))))
+mycolors <- newCols(length(unique(coldata$celltype)))
+names(mycolors) <- unique(coldata$celltype)
+
+newCols2 <- colorRampPalette(pals::alphabet(length(unique(coldata$source))))
+mycolors2 <- newCols2(length(unique(coldata$source)))
+names(mycolors2) <- unique(coldata$source)
+
+
+mycolors <- list(celltype = mycolors, source = mycolors2)
+
+pheatmap(rld.cor, annotation = coldata,
+         color = hcl.colors(12, "Plasma"),
+         border_color = NA,
+         fontsize = 10, fontsize_row = 10, height=20,
+         annotation_colors = mycolors)
+```
+
+
