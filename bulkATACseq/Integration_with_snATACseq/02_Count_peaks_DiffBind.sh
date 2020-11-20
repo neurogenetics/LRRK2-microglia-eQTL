@@ -1,5 +1,7 @@
 #!/bin/env Rscript
 
+# On Biowulf cluster http://hpc.nih.gov
+
 library(DiffBind)
 
 dba <- dba(sampleSheet = "./data/sampleSheet_DiffBind_with_iMGL_iFbN.csv")
