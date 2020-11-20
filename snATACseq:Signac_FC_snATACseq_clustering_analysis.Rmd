@@ -1,0 +1,347 @@
+---
+title: "Signac_FC_snATACseq_clustering analysis"
+author: "Rebekah Langston"
+date: "11/20/2020"
+output: html_document
+---
+
+# This analysis was completed using version 0.2.5 of the Signac package
+## See the Signac package website, e.g. https://satijalab.org/signac/articles/pbmc_vignette.html for a workflow in the latest version of this package
+
+
+# Load necessary packages
+```{r, message=FALSE, warning=FALSE}
+library(Signac)
+library(Seurat)
+library(GenomeInfoDb)
+library(EnsDb.Hsapiens.v86)   # We aligned snATACseq FASTQ files to hg38 genome build
+
+library(ggplot2)
+library(patchwork)
+set.seed(1234)
+```
+
+```{r}
+# define a convenient function to load all the data and create a Seurat object
+create_obj <- function(dir) {
+  count.path <- list.files(path = dir, pattern = "*filtered_peak_bc_matrix.h5", full.names = TRUE)
+  fragment.path <- list.files(path = dir, pattern = "*fragments.tsv.gz", full.names = TRUE)[1]
+  counts <- Read10X_h5(count.path)
+  md.path <- list.files(path = dir, pattern = "*singlecell.csv", full.names = TRUE)
+  md <- read.table(file = md.path, stringsAsFactors = FALSE, sep = ",", header = TRUE, row.names = 1)
+  obj <- CreateSeuratObject(counts = counts, assay = "peaks", min.cells = 1, meta.data = md)
+  obj <- SetFragments(obj, file = fragment.path)
+  return(obj)
+}
+```
+
+# Create Seurat objects for each dataset
+```{r}
+S794.atac <- create_obj("data/UMARY794_hg38/")
+S1230.atac <- create_obj("data/UMARY1230_hg38/")
+S1274.atac <- create_obj("data/UMARY1274_hg38/")
+S5079.atac <- create_obj("data/UMARY5079_hg38/")
+```
+
+# Perform standard pre-processing and quality control on each object
+```{r}
+# For calculating TSS enrichment score, create granges object with TSS positions
+gene.ranges <- genes(EnsDb.Hsapiens.v86)
+seqlevelsStyle(gene.ranges) <- 'UCSC'
+gene.ranges <- gene.ranges[gene.ranges$gene_biotype == 'protein_coding', ]
+
+tss.ranges <- GRanges(
+  seqnames = seqnames(gene.ranges),
+  ranges = IRanges(start = start(gene.ranges), width = 2),
+  strand = strand(gene.ranges)
+)
+
+seqlevelsStyle(tss.ranges) <- 'UCSC'
+tss.ranges <- keepStandardChromosomes(tss.ranges, pruning.mode = 'coarse')
+```
+
+## S794
+```{r, message=FALSE, warning=FALSE}
+S794.atac <- NucleosomeSignal(object = S794.atac)
+
+S794.atac$pct_reads_in_peaks <- S794.atac$peak_region_fragments / S794.atac$passed_filters * 100
+S794.atac$blacklist_ratio <- S794.atac$blacklist_region_fragments / S794.atac$peak_region_fragments
+
+S794.atac$nucleosome_group <- ifelse(S794.atac$nucleosome_signal > 10, 'NS > 10', 'NS < 10')
+
+S794.atac <- TSSEnrichment(object = S794.atac, tss.positions = tss.ranges[1:2000])
+S794.atac$high.tss <- ifelse(S794.atac$TSS.enrichment > 2, 'High', 'Low')
+
+# Remove outliers
+S794.atac <- subset(S794.atac, subset = peak_region_fragments > 3000 & peak_region_fragments < 20000 & pct_reads_in_peaks > 15 & blacklist_ratio < 0.05 & nucleosome_signal < 10 & TSS.enrichment > 2)
+
+# Normalize
+S794.atac <- RunTFIDF(S794.atac)
+S794.atac <- FindTopFeatures(S794.atac, min.cutoff = 'q0')
+S794.atac <- RunSVD(object = S794.atac, assay = 'peaks', reduction.key = 'LSI_', reduction.name = 'lsi')
+```
+
+## S1230
+```{r, message=FALSE, warning=FALSE}
+S1230.atac <- NucleosomeSignal(object = S1230.atac)
+
+S1230.atac$pct_reads_in_peaks <- S1230.atac$peak_region_fragments / S1230.atac$passed_filters * 100
+S1230.atac$blacklist_ratio <- S1230.atac$blacklist_region_fragments / S1230.atac$peak_region_fragments
+
+S1230.atac$nucleosome_group <- ifelse(S1230.atac$nucleosome_signal > 10, 'NS > 10', 'NS < 10')
+
+S1230.atac <- TSSEnrichment(object = S1230.atac, tss.positions = tss.ranges[1:2000])
+S1230.atac$high.tss <- ifelse(S1230.atac$TSS.enrichment > 2, 'High', 'Low')
+
+# Remove outliers
+S1230.atac <- subset(S1230.atac, subset = peak_region_fragments > 3000 & peak_region_fragments < 20000 & pct_reads_in_peaks > 15 & blacklist_ratio < 0.05 & nucleosome_signal < 10 & TSS.enrichment > 2)
+
+# Normalize
+S1230.atac <- RunTFIDF(S1230.atac)
+S1230.atac <- FindTopFeatures(S1230.atac, min.cutoff = 'q0')
+S1230.atac <- RunSVD(object = S1230.atac, assay = 'peaks', reduction.key = 'LSI_', reduction.name = 'lsi')
+```
+
+## S1274
+```{r, message=FALSE, warning=FALSE}
+S1274.atac <- NucleosomeSignal(object = S1274.atac)
+
+S1274.atac$pct_reads_in_peaks <- S1274.atac$peak_region_fragments / S1274.atac$passed_filters * 100
+S1274.atac$blacklist_ratio <- S1274.atac$blacklist_region_fragments / S1274.atac$peak_region_fragments
+
+S1274.atac$nucleosome_group <- ifelse(S1274.atac$nucleosome_signal > 10, 'NS > 10', 'NS < 10')
+
+S1274.atac <- TSSEnrichment(object = S1274.atac, tss.positions = tss.ranges[1:2000])
+S1274.atac$high.tss <- ifelse(S1274.atac$TSS.enrichment > 2, 'High', 'Low')
+
+# Remove outliers
+S1274.atac <- subset(S1274.atac, subset = peak_region_fragments > 3000 & peak_region_fragments < 20000 & pct_reads_in_peaks > 15 & blacklist_ratio < 0.05 & nucleosome_signal < 10 & TSS.enrichment > 2)
+
+# Normalize
+S1274.atac <- RunTFIDF(S1274.atac)
+S1274.atac <- FindTopFeatures(S1274.atac, min.cutoff = 'q0')
+S1274.atac <- RunSVD(object = S1274.atac, assay = 'peaks', reduction.key = 'LSI_', reduction.name = 'lsi')
+```
+
+## S5079
+```{r, message=FALSE, warning=FALSE}
+S5079.atac <- NucleosomeSignal(object = S5079.atac)
+
+S5079.atac$pct_reads_in_peaks <- S5079.atac$peak_region_fragments / S5079.atac$passed_filters * 100
+S5079.atac$blacklist_ratio <- S5079.atac$blacklist_region_fragments / S5079.atac$peak_region_fragments
+
+S5079.atac$nucleosome_group <- ifelse(S5079.atac$nucleosome_signal > 10, 'NS > 10', 'NS < 10')
+
+S5079.atac <- TSSEnrichment(object = S5079.atac, tss.positions = tss.ranges[1:2000])
+S5079.atac$high.tss <- ifelse(S5079.atac$TSS.enrichment > 2, 'High', 'Low')
+
+# Remove outliers
+S5079.atac <- subset(S5079.atac, subset = peak_region_fragments > 3000 & peak_region_fragments < 20000 & pct_reads_in_peaks > 15 & blacklist_ratio < 0.05 & nucleosome_signal < 10 & TSS.enrichment > 2)
+
+# Normalize
+S5079.atac <- RunTFIDF(S5079.atac)
+S5079.atac <- FindTopFeatures(S5079.atac, min.cutoff = 'q0')
+S5079.atac <- RunSVD(object = S5079.atac, assay = 'peaks', reduction.key = 'LSI_', reduction.name = 'lsi')
+```
+
+# Create a common peak set
+```{r}
+combined.peaks <- UnifyPeaks(object.list = list(S794.atac, S1230.atac, S1274.atac, S5079.atac), mode = "reduce")
+combined.peaks
+```
+
+# Quantify peaks in each dataset
+```{r}
+S794.counts <- FeatureMatrix(
+  fragments = GetFragments(S794.atac),
+  features = combined.peaks,
+  sep = c(":", "-"),
+  cells = colnames(S794.atac)
+)
+
+S1230.counts <- FeatureMatrix(
+  fragments = GetFragments(S1230.atac),
+  features = combined.peaks,
+  sep = c(":", "-"),
+  cells = colnames(S1230.atac)
+)
+
+S1274.counts <- FeatureMatrix(
+  fragments = GetFragments(S1274.atac),
+  features = combined.peaks,
+  sep = c(":", "-"),
+  cells = colnames(S1274.atac)
+)
+
+S5079.counts <- FeatureMatrix(
+  fragments = GetFragments(S5079.atac),
+  features = combined.peaks,
+  sep = c(":", "-"),
+  cells = colnames(S5079.atac)
+)
+```
+
+```{r}
+S794.atac[['peaks']] <- CreateAssayObject(counts = S794.counts)
+S1230.atac[['peaks']] <- CreateAssayObject(counts = S1230.counts)
+S1274.atac[['peaks']] <- CreateAssayObject(counts = S1274.counts)
+S5079.atac[['peaks']] <- CreateAssayObject(counts = S5079.counts)
+```
+
+# Merge objects
+## Here there is no dataset-specific difference expected - same technology, single batch - so datasets are merged
+```{r}
+# add information to identify dataset of origin
+S794.atac$dataset <- 'S794'
+S794.atac$rs76904798 <- 'CC'
+S794.atac$sex <- 2
+
+S1230.atac$dataset <- 'S1230'
+S1230.atac$rs76904798 <- 'TT'
+S1230.atac$sex <- 2
+
+S1274.atac$dataset <- 'S1274'
+S1274.atac$rs76904798 <- 'CC'
+S1274.atac$sex <- 1
+
+S5079.atac$dataset <- 'S5079'
+S5079.atac$rs76904798 <- 'TT'
+S5079.atac$sex <- 1
+
+
+# merge all datasets, adding a cell ID to make sure cell names are unique
+FC.atac <- merge(x = S794.atac, y = list(S1230.atac, S1274.atac, S5079.atac), add.cell.ids = c("S794", "S1230", "S1274", "S5079"))
+FC.atac #7805 nuclei
+```
+
+# Visualize characteristics of merged object
+```{r}
+VlnPlot(object = FC.atac, features = c('pct_reads_in_peaks', 'blacklist_ratio', 'nucleosome_signal', 'peak_region_fragments'), group.by = 'dataset', pt.size = 0, ncol = 4) + NoLegend()
+```
+
+# Normalize and Cluster
+```{r}
+# Change to the assay containing common peaks
+DefaultAssay(FC.atac) <- "peaks" 
+
+# Normalize
+FC.atac <- RunTFIDF(FC.atac)
+FC.atac <- FindTopFeatures(FC.atac, min.cutoff = 20)
+FC.atac <- RunSVD(
+  FC.atac,
+  reduction.key = 'LSI_',
+  reduction.name = 'lsi', 
+  irlba.work = 400
+)
+
+FC.atac <- RunUMAP(FC.atac, dims = 2:30, reduction = 'lsi')
+FC.atac <- FindNeighbors(object = FC.atac, reduction = 'lsi', dims = 2:30)
+FC.atac <- FindClusters(object = FC.atac, verbose = FALSE, algorithm = 3, resolution = 0.4)
+```
+
+# Visualize clusters
+```{r}
+DimPlot(object = FC.atac, label = TRUE) + NoLegend()
+```
+
+# Merge fragment files
+## On Biowulf cluster http://hpc.nih.gov  (Merge_fragments_snATACseq.sh)
+
+```{r}
+FC.atac <- SetFragments(FC.atac, "data/FC_fragments_hg38.tsv.gz")
+fragment.path <- 'data/FC_fragments_hg38.tsv.gz'
+```
+
+# Create a gene activity matrix
+```{r, message=FALSE, warning=FALSE}
+# extract gene coordinates from Ensembl, and ensure name formatting is consistent with Seurat object 
+gene.coords <- genes(EnsDb.Hsapiens.v86, filter = ~ gene_biotype == "protein_coding")
+seqlevelsStyle(gene.coords) <- 'UCSC'
+genebody.coords <- keepStandardChromosomes(gene.coords, pruning.mode = 'coarse')
+genebodyandpromoter.coords <- Extend(x = gene.coords, upstream = 2000, downstream = 0)
+```
+
+```{r}
+# create a gene by cell matrix
+gene.activities <- FeatureMatrix(fragments = fragment.path, features = genebodyandpromoter.coords, cells = colnames(FC.atac), chunk = 20)
+
+# convert rownames from chromsomal coordinates into gene names
+gene.key <- genebodyandpromoter.coords$gene_name
+names(gene.key) <- GRangesToString(grange = genebodyandpromoter.coords)
+rownames(gene.activities) <- gene.key[rownames(gene.activities)]
+```
+
+# Add the gene activity matrix to the Seurat object as a new assay, and normalize it
+```{r}
+FC.atac[['RNA']] <- CreateAssayObject(counts = gene.activities)
+FC.atac <- NormalizeData(object = FC.atac, assay = 'RNA', normalization.method = 'LogNormalize', scale.factor = median(FC.atac$nCount_RNA))
+```
+
+# Take a look at known markers of cell types
+```{r}
+DefaultAssay(FC.atac) <- 'RNA'
+```
+
+## InN, ExN, ODC
+```{r}
+FeaturePlot(object = FC.atac, features = c('GAD1', 'SLC17A7', 'PLP1'), pt.size = 0.1, max.cutoff = 'q95', ncol = 3, cols = c("#CCFFFF", "lightgrey", "#FF0000"))
+```
+
+## OPC, MGL, AST
+```{r}
+FeaturePlot(object = FC.atac, features = c('PDGFRA', 'P2RY12', 'GFAP'), pt.size = 0.1, max.cutoff = 'q95', ncol = 3, cols = c("#CCFFFF", "lightgrey", "#FF0000"))
+```
+
+# Annotate scATAC-seq derived clusters
+## Exclude clusters 14 and 15 which had high accessiblity of marker genes of more than one cell type
+## May also run FindMarkers()
+```{r}
+FC.atac$num.ident <- Idents(FC.atac)
+FC.atac <- subset(FC.atac, idents = c(14, 15), invert = TRUE)
+FC.atac  #7732 nuclei
+```
+
+```{r}
+FC.atac <- RenameIdents(
+  object = FC.atac,
+  '0' = 'ODC.0',
+  '1' = 'ExN.1',
+  '2' = 'ODC.2',
+  '3' = 'AST.3',
+  '4' = 'MGL.4',
+  '5' = 'ODC.5',
+  '6' = 'OPC.6',
+  '7' = 'ExN.7',
+  '8' = 'InN.8',
+  '9' = 'InN.9',
+  '10' = 'InN.10',
+  '11' = 'InN.11',
+  '12' = 'ExN.12',
+  '13' = 'EC.13'
+)
+```
+
+```{r}
+DimPlot(object = FC.atac, label = TRUE) + NoLegend()
+```
+
+```{r}
+#save(file = "seurat_objects/FC_atac_named.Rdata", object = FC.atac)
+```
+
+# Build heatmap to confirm broad cell type assignments
+```{r}
+# set plotting order
+levels(FC.atac) <- c("MGL.4", "AST.3", "OPC.6", "ODC.0", "ODC.2", "ODC.5", "EC.13", "ExN.1", "ExN.7", "ExN.12", "InN.8", "InN.9", "InN.10", "InN.11")
+
+marker.genes <- c("SLC1A2", "GFAP", "AQP4", "CLDN5", "PDGFRA", "VCAN", "PLP1", "MOBP", "CSF1R", "P2RY12", "ITGAM", "CX3CR1", "CUX2", "SLC17A7", "THEMIS", "FEZF2", "GAD1", "SST", "VIP", "PVALB")
+
+cluster.averages <- AverageExpression(FC.atac, features = marker.genes, return.seurat = TRUE)
+DoHeatmap(cluster.averages, features = marker.genes, size = 3, draw.lines = F) +
+  scale_fill_gradientn(colors = c("#0000FF", "#CCFFFF", "#FF3300"))
+```
+
+
+
+
+
