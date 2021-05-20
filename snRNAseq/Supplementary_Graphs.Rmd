@@ -99,7 +99,7 @@ Gene <- factor(markers <- c("GAD1", "GAD2", "SLC6A1", "ERBB4", "GRIK1", "GRIP1",
 
 Celltype <- factor(c(rep("GABAergic Neuron", 16), rep("Glutamatergic Neuron", 16), rep("Oligodendrocyte", 5),
                      rep("Oligodendrocyte Precursor Cell", 4), rep("Microglia", 4), rep("Astrocyte", 5),
-                     rep("Endothelial Cell", 6))
+                     rep("Vascular Cell", 6))
                    )
 
 anno <- data.frame(Celltype, row.names = Gene)
