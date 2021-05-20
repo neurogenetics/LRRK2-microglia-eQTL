@@ -164,7 +164,7 @@ p5 <- VlnPlot(frontal.integrated, c("P2RY12", "ITGAM", "CSF1R", "CX3CR1"), pt.si
 ggsave("plots/markers/Vln_MGL_P2RY12_CSF1R_CX3CR1_ITGAM.png", plot = p5, width = 12, height = 5)
 
 p6 <- VlnPlot(frontal.integrated, c("CLDN5", "COLEC12"), pt.size = 0, ncol = 1) + NoLegend()
-ggsave("plots/markers/Vln_EC_CLDN5_COLEC12.png", plot = p6, width = 8, height = 6)
+ggsave("plots/markers/Vln_VC_CLDN5_COLEC12.png", plot = p6, width = 8, height = 6)
 ```
 
 
