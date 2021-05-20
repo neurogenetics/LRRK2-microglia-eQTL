@@ -41,8 +41,8 @@ frontal.integrated <- RenameIdents(frontal.integrated, `3` = "OPC.3", `44` = "OP
 # Name MGL and AST
 frontal.integrated <- RenameIdents(frontal.integrated, `14` = "AST.14", `15` = "AST.15", `18` = "AST.18", `13` = "MGL.13", `25` = "MGL.25")
 
-# Name EC 
-frontal.integrated <- RenameIdents(frontal.integrated, `26` = "EC.26", `30` = "EC.30", `46` = "EC.46", `49` = "EC.49")
+# Name VC 
+frontal.integrated <- RenameIdents(frontal.integrated, `26` = "VC.26", `30` = "VC.30", `46` = "VC.46", `49` = "VC.49")
 
 # Name ExN
 frontal.integrated <- RenameIdents(frontal.integrated, `0` = "ExN.0", `1` = "ExN.1", `4` = "ExN.4", `5` = "ExN.5",
@@ -68,8 +68,8 @@ frontal.integrated <- RenameIdents(frontal.integrated, `OPC.3` = "OPC", `OPC.44`
 # MGL and AST
 frontal.integrated <- RenameIdents(frontal.integrated, `AST.14` = "AST", `AST.15` = "AST", `AST.18` = "AST", `MGL.13` = "MGL", `MGL.25` = "MGL")
 
-# EC
-frontal.integrated <- RenameIdents(frontal.integrated, `EC.26` = "EC", `EC.30` = "EC", `EC.46` = "EC", `EC.49` = "EC")
+# VC
+frontal.integrated <- RenameIdents(frontal.integrated, `VC.26` = "VC", `VC.30` = "VC", `VC.46` = "VC", `VC.49` = "VC")
 
 # ExN
 frontal.integrated <- RenameIdents(frontal.integrated, `ExN.0` = "ExN", `ExN.1` = "ExN", `ExN.4` = "ExN", `ExN.5` = "ExN",
