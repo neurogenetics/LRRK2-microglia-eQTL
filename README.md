@@ -10,3 +10,4 @@ This repository contains R and command line scripts used to produce the results 
 1. Target mRNA and protein expression in iPSC-derived microglia
 1. Single nuclei ATAC sequencing of human frontal cortex
 1. Bulk ATAC sequencing of iPSC-derived cells
+1. Single-cell RNA sequening of iPSC-derived microglia and CRISPR-dcas9 of LRRK2 CREs
