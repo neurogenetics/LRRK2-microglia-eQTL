@@ -1,5 +1,5 @@
 # Project: Study of a microglia-specific eQTL
-## Author: Rebekah Langston
+## Authors: Rebekah Langston and J. Raph Gibbs
 
 
 This repository contains scripts used to produce the results presented in our manuscript titled "Association of a Common Genetic Variant with Parkinson’s Disease is Propagated through Microglia".
