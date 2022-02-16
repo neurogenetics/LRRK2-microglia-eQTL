@@ -54,7 +54,7 @@ frontal.integrated <- RenameIdents(
   '14' = 'ExN.14',
   '15' = 'ExN.15',
   '16' = 'AST.16',
-  '18' = 'VC.18',    # rename in original snRNAseq analyses
+  '18' = 'VC.18',   
   '19' = 'InN.19',
   '20' = 'ExN.20',
   '21' = 'InN.21',
