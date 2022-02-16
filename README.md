@@ -4,11 +4,13 @@
 
 This repository contains scripts used to produce the results presented in our manuscript titled "Association of a Common Genetic Variant with Parkinson’s Disease is Propagated through Microglia".
 
-## Seven datasets are analyzed:
-1. Single nuclei RNA sequencing of human frontal cortex
-1. Single cell RNA sequencing of iPSC-derived microglia
-1. Target mRNA and protein expression in iPSC-derived microglia
-1. Single nuclei ATAC sequencing of human frontal cortex
-2. Single nuclei Multiome (RNA + ATAC) sequencing of human substantia nigra
-3. Bulk ATAC sequencing of iPSC-derived cells
-4. Single cell CRISPRi screen in iPSC-derived microglia targeting LRRK2 CREs
+## These datasets are analyzed:
+* Single nuclei RNA sequencing of human frontal cortex
+* Single cell RNA sequencing of iPSC-derived microglia
+* Target mRNA and protein expression in iPSC-derived microglia
+* Single nuclei ATAC sequencing of human frontal cortex
+* Single nuclei Multiome (GEX + ATAC) sequencing of human substantia nigra
+  * Also analysis of publicly available human substantia nigra snRNAseq datasets   
+* Bulk ATAC sequencing of iPSC-derived cells
+  * Also integration of bulk ATACseq and snATACseq datasets   
+* Single cell CRISPRi screen in iPSC-derived microglia targeting LRRK2 CREs
