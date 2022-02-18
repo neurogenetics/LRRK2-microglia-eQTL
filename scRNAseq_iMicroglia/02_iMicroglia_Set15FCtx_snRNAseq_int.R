@@ -1,29 +1,18 @@
----
-title: "iMicroglia_scRNAseq_FCsnRNAseq_Integration"
-author: "Rebekah Langston"
-date: "11/16/2020"
-output: html_document
----
-
-# Completed using the Biowulf cluster http://hpc.nih.gov
+#!/bin/env Rscript
 
 # Load necessary packages
-```{r}
 library(Seurat)
-library(sctransform)
 library(tidyverse)
-```
+library(sctransform)
+library(cowplot)
 
 # Set up future for parallelization
-```{r}
 library(future)
 library(future.apply)
 plan("multiprocess", workers = 4)
 options(future.globals.maxSize = 20000 * 1024^2)
-```
 
-# Read in frontal cortex snRNAseq datasets
-```{r}
+# Read in FC snRNAseq data (Set15)
 S1027.data <- Read10X(data.dir = "/data/langstonrg/snRNAseq/data/FC_Set15_rs76904798/S1027/filtered_feature_bc_matrix/")
 S1672.data <- Read10X(data.dir = "/data/langstonrg/snRNAseq/data/FC_Set15_rs76904798/S1672/filtered_feature_bc_matrix/")
 S1363.data <- Read10X(data.dir = "/data/langstonrg/snRNAseq/data/FC_Set15_rs76904798/S1363/filtered_feature_bc_matrix/")
@@ -39,11 +28,9 @@ S794.data <- Read10X(data.dir = "/data/langstonrg/snRNAseq/data/FC_Set15_rs76904
 S1209.data <- Read10X(data.dir = "/data/langstonrg/snRNAseq/data/FC_Set15_rs76904798/S1209/filtered_feature_bc_matrix/")
 S1230.data <- Read10X(data.dir = "/data/langstonrg/snRNAseq/data/FC_Set15_rs76904798/S1230/filtered_feature_bc_matrix/")
 S1274.data <- Read10X(data.dir = "/data/langstonrg/snRNAseq/data/FC_Set15_rs76904798/S1274/filtered_feature_bc_matrix/")
-```
 
 
 # Create Seurat objects, add rs76904798 genotype group and batch
-```{r}
 S1027 <- CreateSeuratObject(counts = S1027.data, min.cells = 3, min.features = 500, project = "FC_S1027")
 S1027$rs76904798 <- "TT"
 S1027$batch <- 2
@@ -118,10 +105,8 @@ S1274 <- CreateSeuratObject(counts = S1274.data, min.cells = 3, min.features = 5
 S1274$rs76904798 <- "CC"
 S1274$batch <- 1
 S1274
-```
 
 # Read in iMicroglia scRNAseq data and create Seurat Objects
-```{r}
 PPMI3453.data <- Read10X(data.dir = "data/PPMI3453_iMicroglia/filtered_feature_bc_matrix/")
 PPMI4101.data <- Read10X(data.dir = "data/PPMI4101_iMicroglia/filtered_feature_bc_matrix/")
 
@@ -134,10 +119,9 @@ PPMI4101 <- CreateSeuratObject(counts = PPMI4101.data, min.cells = 3, min.featur
 PPMI4101$rs76904798 <- "CT"
 PPMI4101$batch <- 5
 PPMI4101  #4,079 cells
-```
 
-# Add dataset source type
-```{r}
+
+# Add source type
 PPMI3453$type <- "iPSC_derived"
 PPMI4101$type <- "iPSC_derived"
 
@@ -156,11 +140,9 @@ S794$type <- "brain_FC"
 S1209$type <- "brain_FC"
 S1230$type <- "brain_FC"
 S1274$type <- "brain_FC"
-```
 
 
 # Normalize (SCTransform) and Integrate
-```{r}
 FC_iMGL.list <- c(S1027, S1672, S1363, S5123, S630, S1584, S4022, S5079, S4924, S1135, S4724, S794, S1209, S1230, S1274, PPMI3453, PPMI4101)
 FC_iMGL.list <- future_lapply(X = FC_iMGL.list, FUN = function(x) {
   x <- PercentageFeatureSet(x, pattern = "^MT-", col.name = "percent.mt")
@@ -176,136 +158,36 @@ FC_iMGL.list <- PrepSCTIntegration(object.list = FC_iMGL.list, anchor.features =
 anchors <- FindIntegrationAnchors(object.list = FC_iMGL.list, normalization.method = "SCT", anchor.features = features, reduction = "rpca", dims = 1:30)
 FC_iMGL.integrated <- IntegrateData(anchorset = anchors, normalization.method = "SCT", dims = 1:30)
 FC_iMGL.integrated
-```
 
-# Cluster
-```{r}
+save(file = "output/FCSet15_iMGL_integrated.Rdata", object = FC_iMGL.integrated)
+
+#Check out integrated object
+p1 <- VlnPlot(object = FC_iMGL.integrated, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = 0)
+ggsave("plots/FCSet15_iMGL_integration_QC1.png", plot = p1, width = 12, height = 5, units = "in")
+
+p2 <- FeatureScatter(object = FC_iMGL.integrated, feature1 = "nCount_RNA", feature2 = "percent.mt") + NoLegend()
+p3 <- FeatureScatter(object = FC_iMGL.integrated, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+ggsave("plots/FCSet15_iMGL_integration_QC2.png", plot = (plot_grid(p2, p3)), width = 10, height = 5, units = "in")
+
+#Cluster
 FC_iMGL.integrated <- RunPCA(FC_iMGL.integrated, verbose = FALSE)
 FC_iMGL.integrated <- RunUMAP(FC_iMGL.integrated, dims = 1:30, verbose = FALSE)
 FC_iMGL.integrated <- FindNeighbors(FC_iMGL.integrated, dims = 1:30, verbose = FALSE)
 FC_iMGL.integrated <- FindClusters(FC_iMGL.integrated, resolution = 1, verbose = FALSE)
+save(file = "output/FCSet15_iMGL_integrated_clustered.Rdata", object = FC_iMGL.integrated)
 
-DimPlot(FC_iMGL.integrated, reduction = "umap", label = TRUE) + NoLegend()
-```
+p3 <- DimPlot(FC_iMGL.integrated, reduction = "umap", label = TRUE) + NoLegend()
+ggsave("plots/FCSet15_iMGL_Clusters_1.png", plot = p3, width = 7, height = 5, units = "in")
 
-# Find cluster markers
-```{r}
+p4 <- DimPlot(FC_iMGL.integrated, reduction = "umap", group.by = "orig.ident")
+ggsave("plots/FCSet15_iMGL_Clusters_2.png", plot = p4, width = 9, height = 5, units = "in")
+
+p5 <- DimPlot(FC_iMGL.integrated, reduction = "umap", group.by = "type")
+ggsave("plots/FCSet15_iMGL_Clusters_3.png", plot = p5, width = 8, height = 5, units = "in")
+
 FC_iMGL.integrated.markers <- FindAllMarkers(object = FC_iMGL.integrated, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 write.csv(FC_iMGL.integrated.markers, file = "output/FCSet15_iMGL_markers.csv")
-```
-
-# Check expression of cell type markers
-```{r}
-DefaultAssay(FC_iMGL.integrated) <- "SCT"
-
-## Excitatory Neurons
-VlnPlot(FC_iMGL.integrated, c("SLC17A7", "RORB", "THEMIS", "FEZF2" ), pt.size = 0, ncol = 2) + NoLegend()
-
-## Inhibitory Neurons
-VlnPlot(FC_iMGL.integrated, c("GAD1", "SST", "VIP", "PVALB"), pt.size = 0, ncol = 2) + NoLegend()
-
-## OPC and ODC
-VlnPlot(FC_iMGL.integrated, c("PDGFRA", "OLIG2", "PLP1", "MOBP"), pt.size = 0, ncol = 2) + NoLegend()
-
-## Astrocytes
-VlnPlot(FC_iMGL.integrated, c("SLC1A2", "SLC1A3", "GFAP", "AQP4"), pt.size = 0, ncol = 2) + NoLegend()
-
-## Microglia
-VlnPlot(FC_iMGL.integrated, c("P2RY12", "ITGAM", "CSF1R", "CX3CR1"), pt.size = 0, ncol = 2) + NoLegend()
-
-## Endothelial cells
-VlnPlot(FC_iMGL.integrated, c("CLDN5", "COLEC12"), pt.size = 0, ncol = 1) + NoLegend()
-```
-
-# Rename based on broad cell type marker gene expression 
-```{r}
-## Save numerical cluster IDs
-FC_iMGL.integrated[["num.ident"]] <- Idents(object = FC_iMGL.integrated)
-
-## Exclude clusters with unclear/multiple celltype markers - 44, 46, 47
-FC_iMGL.integrated <- subset(FC_iMGL.integrated, idents = c(44, 46, 47), invert = TRUE)
-
-## Name OPC and ODC (PDGFRA, OLIG2 and PLP1, MOBP)
-FC_iMGL.integrated <- RenameIdents(FC_iMGL.integrated, `6` = "OPC", `0` = "ODC", `5` = "ODC", `9` = "ODC")
-
-## Name MGL and AST
-FC_iMGL.integrated <- RenameIdents(FC_iMGL.integrated, `3` = "AST", `24` = "AST", `1` = "iMGL", `10` = "MGL", `25` = "MGL", `39` = "MGL", `42` = "MGL")
-
-## Name probable peripheral immune cell cluster
-FC_iMGL.integrated <- RenameIdents(FC_iMGL.integrated, `28` = "PIC")
-
-## Name EC
-FC_iMGL.integrated <- RenameIdents(FC_iMGL.integrated, `29` = "EC", `37` = "EC", `43` = "EC")
-
-## Name ExN
-FC_iMGL.integrated <- RenameIdents(FC_iMGL.integrated, `2` = "ExN", `4` = "ExN", `7` = "ExN", `8` = "ExN", `11` = "ExN", `14` = "ExN", `15` = "ExN", `16` = "ExN", `17` = "ExN", `19` = "ExN",`20` = "ExN", `21` = "ExN", `30` = "ExN", `31` = "ExN", `32` = "ExN", `38` = "ExN", `40` = "ExN", `41` = "ExN", `45` = "ExN")
-
-## Name InN
-FC_iMGL.integrated <- RenameIdents(FC_iMGL.integrated, `12` = "InN", `13` = "InN", `18` = "InN", `22` = "InN", `23` = "InN", `26` = "InN", `27` = "InN", `33` = "InN", `34` = "InN", `35` = "InN", `36` = "InN")
-
-## Save cell type IDs in new ident
-FC_iMGL.integrated$broad_celltype <- Idents(FC_iMGL.integrated)
-
-#save(file = "output/FCSet15_iMGL_clustered_named.Rdata", object = FC_iMGL.integrated)
-
-## Visualize
-DimPlot(FC_iMGL.integrated, reduction = 'umap', group.by = "broad_celltype", pt.size = 0.08, label = TRUE, label.size = 5) + NoLegend()
-```
-
-# Assess the similarity of iMicroglia to frontal cortex cell types
-```{r}
-av.exp <- AverageExpression(FC_iMGL.integrated, "SCT")$SCT
-write.csv(av.exp, file = "output/FC_iMGL_integrated_SCT_AvExp.csv")
-```
-
-
-# Remaining steps can be completed locally
-
-# Load necessary packages
-```{r, message=F, warning=F}
-library(tidyverse)
-library(reshape2)
-library(pheatmap)
-library(Hmisc)
-library(corrplot)
-library(pals)
-```
-
-# Read in table of (SCT-) normalized expression in integrated FC_Set15 snRNAseq with iMicroglia scRNAseq
-```{r}
-av.exp <- read.csv("output/FC_iMGL_integrated_SCT_AvExp.csv", header = T, row.names = 1)
-```
-
-# Compute Pearson correlation
-## For iMicroglia vs brain microglia
-```{r}
-av.exp.iMGLvsMGL <- av.exp %>% dplyr::select(iMGL, MGL)
-
-rc.iMGLvsMGL <- rcorr(as.matrix(av.exp.iMGLvsMGL), type="pearson")
-ct.iMGLvsMGL <- cor.test(av.exp.iMGLvsMGL$iMGL, av.exp.iMGLvsMGL$MGL, method = "pearson")
-
-rc.iMGLvsMGL$r
-```
-
-```{r}
-print(ct.iMGLvsMGL, digits = 10)
-```
-
-## For all cell types vs all cell types
-```{r}
-cormat<-signif(cor(av.exp),2)
-cormat
-```
-
-# Make corrplot
-## http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software#use-corrplot-function-draw-a-correlogram
-```{r}
-res <- rcorr(as.matrix(av.exp))
-
-corrplot(res$r, type="upper", order="hclust", addgrid.col = NA,
-         p.mat = res$P, sig.level = 0.01, insig = "blank",    # Note: all correlations were significant
-         tl.col = "black", tl.srt = 45, cl.lim = c(0, 1),
-         col=rev(kovesi.cyclic_mygbm_30_95_c78(50)))
-```
+top10.FC_iMGL.integrated <- FC_iMGL.integrated.markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+write.csv(top10.FC_iMGL.integrated, file = "output/top10_FCSet15_iMGL_markers.csv")
 
 

@@ -1,0 +1,266 @@
+---
+title: "FCSet15_iMGL_integration_plots_rev"
+author: "Rebekah"
+date: "5/30/2021"
+output: html_document
+---
+
+```{r, message=F, warning=F}
+library(tidyverse)
+library(reshape2)
+library(svglite)
+```
+
+```{r}
+FC.iMGL.pbct <- read.csv("./output/FCSet15_iMGL_cells_per_type_per_broadcelltype_rev.csv", header = T) %>% column_to_rownames(var = "X") %>% rename(Brain_FC = brain_FC, iMGL = iPSC_derived)
+
+pbct.tb <- as_tibble(rownames_to_column(FC.iMGL.pbct, var = "Celltype")) %>% mutate(Celltype = as.factor(Celltype))
+```
+
+```{r}
+pbct.tb.m <- melt(pbct.tb[ , c('Celltype', 'Brain_FC', 'iMGL')], id.vars = 1)
+```
+
+```{r}
+p1<- pbct.tb.m %>% mutate(Celltype = fct_relevel(Celltype, "iMGL", "MGL", "AST", "ODC", "OPC", "VC", "ExN", "InN")) %>%
+  ggplot(aes(x = Celltype, y = value)) +
+    geom_bar(aes(fill = variable), stat = "identity", position = "fill", width = 0.8) +
+    scale_fill_manual(values = c("navy", "cyan2")) +
+    labs(y = "Proportion of iMGL/Brain Cells per Cluster", fill = "Source") +
+    theme_classic()
+p1
+```
+
+```{r}
+ggsave(file = "plots/Bargraph_by_sourcetype_rev.pdf", p1, height = 5, width = 4.5)
+```
+
+# Correlation of gene expression in iMGL vs other cell types
+```{r, message = F, warning = F}
+library(viridis)
+library(pheatmap)
+library(Hmisc)
+```
+
+# Read in table of (SCT-) normalized expression in integrated FC_Set15 snRNAseq with iMicroglia scRNAseq
+```{r}
+av.exp <- read.csv("./output/FC_iMGL_integrated_SCT_AvExp_rev.csv", header = T, row.names = 1)
+```
+
+```{r}
+av.exp.iMGLvsMGL <- av.exp %>% dplyr::select(iMGL, MGL)
+
+rc.iMGLvsMGL <- rcorr(as.matrix(av.exp.iMGLvsMGL), type="pearson")
+ct.iMGLvsMGL <- cor.test(av.exp.iMGLvsMGL$iMGL, av.exp.iMGLvsMGL$MGL, method = "pearson")
+
+rc.iMGLvsMGL$r
+```
+
+```{r}
+print(ct.iMGLvsMGL, digits = 10)
+```
+
+
+```{r}
+cormat<-signif(cor(av.exp),2)
+cormat
+```
+
+```{r}
+heat.colors <- viridis(10)
+pheatmap(cormat, border_color = "white", fontsize = 10, fontsize_row = 10, height=20, color = heat.colors)
+```
+
+# Corrplot instructions here: http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software#use-corrplot-function-draw-a-correlogram
+```{r}
+library(corrplot)
+library(pals)
+```
+
+```{r}
+res <- cor(av.exp)
+res2 <- rcorr(as.matrix(av.exp))
+```
+
+```{r}
+corrplot(res2$r, type="upper", order="hclust", addgrid.col = NA,
+         p.mat = res2$P, sig.level = 0.01, insig = "blank",    #note no insig, large # features compared
+          tl.col = "black", tl.srt = 45,
+         cl.lim = c(0, 1),
+         #col=viridis(50))
+         col=rev(kovesi.cyclic_mygbm_30_95_c78(50)))
+```
+
+```{r}
+png(filename = "plots/iMGL_FCcell_corrplot_rev.png", width = 6, height = 6, unit = "in", res = 500)
+corrplot(res2$r, type="upper", order="hclust", addgrid.col = NA,
+         p.mat = res2$P, sig.level = 0.01, insig = "blank",    #note no insig, large # features compared
+          tl.col = "black", tl.srt = 45,
+         cl.lim = c(0, 1),
+         #col=viridis(50))
+         col=rev(kovesi.cyclic_mygbm_30_95_c78(50)))
+dev.off()
+```
+
+```{r}
+svg(filename = "plots/iMGL_FCcell_corrplot_rev.svg", width = 6, height = 6)
+corrplot(res2$r, type="upper", order="hclust", addgrid.col = NA,
+         p.mat = res2$P, sig.level = 0.01, insig = "blank",    #note no insig, large # features compared
+          tl.col = "black", tl.srt = 45,
+         cl.lim = c(0, 1),
+         #col=viridis(50))
+         col=rev(kovesi.cyclic_mygbm_30_95_c78(50)))
+dev.off()
+```
+
+
+# Spot matrix instructions here: https://dgopstein.github.io/articles/spot-matrix/
+```{r}
+cormat.df <- data.frame(melt(cormat, varnames=c("celltype.1", "celltype.2"), value.name = "R"))
+```
+
+
+```{r}
+spot.theme <- list(
+  theme_classic(),
+  theme(axis.ticks.x=element_blank(), axis.text.x=element_text(size = 19, angle = 90, hjust = 0)),
+  theme(axis.ticks.y=element_blank(), axis.text.y=element_text(size = 19)),
+  theme(axis.line=element_blank()),
+  theme(text = element_text(size = 22)),
+  theme(legend.position = "none"),
+  theme(plot.margin = unit(c(10,10,10,10), "mm")),
+  scale_size_continuous(range = c(-0.3, 15)),
+  scale_x_discrete(position = "top"))
+```
+
+
+```{r}
+ggplot(data=cormat.df, aes(celltype.1, celltype.2)) + 
+  geom_point(aes(size = R)) + 
+  spot.theme
+```
+
+```{r}
+colors <- pals::parula(10)[c(1,4,7,9)]
+scale.max.1 <- function(x) x / max(x)
+```
+
+```{r}
+ggplot(data=cormat.df, aes(celltype.1, celltype.2)) + spot.theme + ggtitle("Plain Spot") +
+                   geom_point(colour = colors[[1]], aes(size = R))
+```
+
+```{r}
+ggplot(data=cormat.df, aes(celltype.1, celltype.2)) + spot.theme + ggtitle("Donut Spot") +
+                   geom_point(colour = colors[[2]], aes(size = 1)) +
+                   geom_point(colour = "white",     aes(size = scale.max.1(1/R)))
+```
+
+```{r}
+ggplot(data=cormat.df, aes(celltype.1, celltype.2)) + spot.theme + ggtitle("Center Spot") +
+                   geom_point(colour = "gray20",    aes(size = 1)) +
+                   geom_point(colour = colors[[3]], aes(size = R))
+```
+
+```{r}
+ggplot(data=cormat.df, aes(celltype.1, celltype.2)) + spot.theme + ggtitle("Ring Spot") +
+                   geom_point(colour = "black",     aes(size = 1)) +
+                   geom_point(colour = "white",     aes(size = 0.8)) +
+                   geom_point(colour = colors[[4]], aes(size = 0.81*R))
+```
+
+```{r}
+cell.source <- factor(c(1,1,1,1,1,2,1,1,1), labels=c("Brain_FC", "iPSC"))
+```
+
+```{r}
+ggplot(data=cormat.df, aes(celltype.1, celltype.2)) + spot.theme +
+    geom_point(colour = "black", aes(size = 1)) +
+    geom_point(colour = "white", aes(size = 0.8)) +
+    geom_point(aes(colour = cell.source[celltype.1], size = 0.81*R)) +
+    scale_colour_manual(values = colors[2:4]) +
+    theme(legend.position="right") 
+```
+
+```{r}
+p<- ggplot(data=cormat.df, aes(celltype.1, celltype.2)) + spot.theme +
+    geom_point(colour = "white", aes(size = 0.8)) +
+    geom_point(aes(colour = cell.source[celltype.1], size = 0.81*R)) +
+    scale_colour_manual(values = colors[2:4]) +
+    theme(legend.position="right") 
+p
+```
+
+
+# Look at CellScatter plots for iMGL vs other cells types one by one (LRRK2 highlighted red)
+```{r}
+load("output/FCSet15_iMGL_cluster_averages.Rdata")
+```
+
+## iMGL vs MGL
+```{r}
+CellScatter(cluster.averages, cell1 = "iMGL", cell2 = "MGL", highlight = "LRRK2")
+```
+
+## iMGL vs AST
+```{r}
+CellScatter(cluster.averages, cell1 = "iMGL", cell2 = "AST", highlight = "LRRK2")
+```
+
+## iMGL vs OPC
+```{r}
+CellScatter(cluster.averages, cell1 = "iMGL", cell2 = "OPC", highlight = "LRRK2")
+```
+
+## iMGL vs ODC
+```{r}
+CellScatter(cluster.averages, cell1 = "iMGL", cell2 = "ODC", highlight = "LRRK2")
+```
+
+## iMGL vs EC
+```{r}
+CellScatter(cluster.averages, cell1 = "iMGL", cell2 = "EC", highlight = "LRRK2")
+```
+
+## iMGL vs ExN
+```{r}
+CellScatter(cluster.averages, cell1 = "iMGL", cell2 = "ExN", highlight = "LRRK2")
+```
+
+## iMGL vs InN
+```{r}
+CellScatter(cluster.averages, cell1 = "iMGL", cell2 = "InN", highlight = "LRRK2")
+```
+
+
+```{r}
+ct.iMGLvsAST <- cor.test(av.exp$iMGL, av.exp$AST, method = "pearson")
+print(ct.iMGLvsAST, digits = 10)
+```
+
+```{r}
+ct.iMGLvsEC <- cor.test(av.exp$iMGL, av.exp$EC, method = "pearson")
+print(ct.iMGLvsEC, digits = 10)
+```
+
+```{r}
+ct.iMGLvsODC <- cor.test(av.exp$iMGL, av.exp$ODC, method = "pearson")
+print(ct.iMGLvsODC, digits = 10)
+```
+
+```{r}
+ct.iMGLvsOPC <- cor.test(av.exp$iMGL, av.exp$OPC, method = "pearson")
+print(ct.iMGLvsOPC, digits = 10)
+```
+
+```{r}
+ct.iMGLvsExN <- cor.test(av.exp$iMGL, av.exp$ExN, method = "pearson")
+print(ct.iMGLvsExN, digits = 10)
+```
+
+```{r}
+ct.iMGLvsInN <- cor.test(av.exp$iMGL, av.exp$InN, method = "pearson")
+print(ct.iMGLvsInN, digits = 10)
+```
+
+

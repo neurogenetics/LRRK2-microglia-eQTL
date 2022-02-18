@@ -1,0 +1,141 @@
+---
+title: "Agarwal_Broad_SN_Seuratv4"
+author: "Rebekah Langston"
+date: "03/04/2021"
+output: html_document
+---
+
+```{r}
+library(Seurat)
+packageVersion('Seurat')
+
+library(tidyverse)
+```
+
+# snRNAseq data from two human substantia nigra datasets
+## PMID: 32826893
+## PMID: 31178122
+```{r}
+load("output/Agarwal_Broad_SN_Seuratv4_clustered.Rdata")
+```
+
+```{r}
+SN.integrated
+```
+
+```{r}
+DimPlot(SN.integrated, reduction = "umap", label = TRUE) + NoLegend()
+```
+
+```{r}
+DimPlot(SN.integrated, reduction = "umap", group.by = "orig.ident")
+```
+
+# Find cluster markers
+```{r}
+# Make normalized SCT assay the default
+DefaultAssay(SN.integrated) <- "SCT"
+
+SN.integrated.markers <- FindAllMarkers(object = SN.integrated, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+write.csv(file = "./output/Agarwal_Broad_SN_cluster_markers_Seuratv4.csv", SN.integrated.markers)
+```
+
+```{r}
+VlnPlot(SN.integrated, c("SLC1A2", "SLC1A3", "GFAP", "AQP4"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+```{r}
+VlnPlot(SN.integrated, c("P2RY12", "ITGAM", "CSF1R", "CX3CR1"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+```{r}
+VlnPlot(SN.integrated, c("PDGFRA", "OLIG2", "PLP1", "MOBP"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+```{r}
+VlnPlot(SN.integrated, c("CLDN5", "COLEC12"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+```{r}
+VlnPlot(SN.integrated, c("TH", "ALDH1A1", "SLC6A3", "FOXA2"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+```{r}
+VlnPlot(SN.integrated, c("NEFL", "NEFM", "SYP", "SNAP25"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+```{r}
+VlnPlot(SN.integrated, c("GAD1", "GAD2", "NRG1", "SYT1"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+```{r}
+VlnPlot(SN.integrated, c("SLC17A7", "SLC17A6", "GRIN2A", "GRIN2B"), pt.size = 0, ncol = 2) + NoLegend()
+```
+
+# Rename clusters
+```{r}
+SN.integrated$num.ident <- Idents(SN.integrated)
+
+SN.integrated <- RenameIdents(SN.integrated, `7` = "DaN.7", `10` = "InN.10", `13` = "ExN.13", `0` = "ODC.0", `1` = "ODC.1", `3` = "ODC.3", `5` = "ODC.5", `9` = "ODC.9", `11` = "ODC.11", `2` = "OPC.2", `6` = "MGL.6", `4` = "AST.4", `8` = "VC.8", `12` = "VC.12")
+
+SN.integrated$celltype <- Idents(SN.integrated)
+```
+
+```{r}
+p1 <- DimPlot(SN.integrated, reduction = "umap", label = TRUE, label.size = 5, repel = T, pt.size = 0.1) + NoLegend()
+
+ggsave("./plots/Agarwal_Broad_SN_UMAP_Seuratv4_named.png", plot = p1, width = 6, height = 5.95)
+ggsave("./plots/Agarwal_Broad_SN_UMAP_Seuratv4_named.svg", plot = p1, width = 6, height = 5.95)
+
+p1
+```
+
+```{r}
+save(object = SN.integrated, file = "./output/Agarwal_Broad_SN_Seuratv4_named.Rdata")
+```
+
+
+
+# Check number of cell assigned to each cell type
+```{r}
+table(Idents(SN.integrated))
+```
+
+# Check LRRK2 expression
+```{r}
+p2 <- FeaturePlot(SN.integrated, features = "LRRK2", cols = c("#CCFFFF", "lightgrey", "#FF0000"), order = TRUE, label = TRUE, repel = T, pt.size = 0.1)
+
+#ggsave("./plots/Agarwal_Broad_SN_Seuratv4_Feature_LRRK2.png", plot = p2, width = 6, height = 6.1)
+#ggsave("./plots/Agarwal_Broad_SN_Seuratv4_Feature_LRRK2.svg", plot = p2, width = 6, height = 6.1)
+
+p2
+```
+
+```{r}
+cluster.averages <- AverageExpression(SN.integrated, assays = "SCT", return.seurat = TRUE)
+```
+
+```{r}
+cl.av.LRRK2 <- AverageExpression(SN.integrated, assays = "SCT", features = "LRRK2")
+write.csv(file = "./output/Agarwal_Broad_SN_Seuratv4_av_LRRK2_per_cluster.csv", cl.av.LRRK2$SCT)
+```
+
+```{r}
+genes <- c("LRRK2", "TH", "ALDH1A1", "SLC6A3", "GAD1", "GAD2", "ROBO2", "SLC17A7", "GRIK2", "RELN", "MOBP", "PLP1", "OPALIN", "S100B", "PDGFRA", "OLIG2", "CSF1R", "P2RY12", "GFAP", "AQP4", "CLDN5", "PLXDC1", "COLEC12", "CYP1B1")
+
+bar <- c("navy", "navy", "navy", "navy", "navy", "navy", "navy", "navy", "navy", "navy", "navy", "navy", "navy", "navy")
+
+p3 <- DoHeatmap(cluster.averages, features = genes, size = 3, draw.lines = FALSE, group.colors = bar) +
+  scale_fill_gradientn(colors = c("#0000FF", "#CCFFFF", "#FF3300"))
+
+#ggsave("./plots/Agarwal_Broad_SN_Seuratv4_Heatmap_markers_LRRK2.png", plot = p3, width = 6.2, height = 6)
+#ggsave("./plots/Agarwal_Broad_SN_Seuratv4_Heatmap_markers_LRRK2.svg", plot = p3, width = 6.2, height = 6)
+
+p3
+```
+
+
+
+
+
+

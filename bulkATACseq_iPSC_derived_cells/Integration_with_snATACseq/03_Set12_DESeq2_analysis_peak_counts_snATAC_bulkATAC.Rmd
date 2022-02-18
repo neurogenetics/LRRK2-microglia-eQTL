@@ -1,8 +1,8 @@
 ---
-title: "DESeq2_differential_accessibility_analysis_snATAC_bulkATAC"
-author: "Rebekah Langston"
-date: "11/20/2020"
-output: html_document
+title: "Set12_DESeq2_snATAC_with_bulkATAC_peak_counts"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r, message=F, warning=F}
@@ -18,9 +18,11 @@ library(stringr)
 
 # Read in table from DiffBind_ATACseq_bulkATACseq_counts.R and tidy
 ```{r}
-counts <- read.csv("./output/snATACseq_bulkATAC_celltype_counts_summ.csv", header = T, row.names = NULL)
+counts <- read.csv("output/Set12_snATACseq_bulkATAC_celltype_counts_summ.csv", header = T, row.names = NULL)
+```
 
-# Unite peak coordinates into one column, convert to row.names
+## Unite peak coordinates into one column, convert to row.names
+```{r}
 counts.t <- unite(counts, "coord", START:END, sep = "-")
 counts.t <- unite(counts.t, "peak_coord", CHR:coord, sep = "-")
 colnames(counts.t) <- sub("_", ".", colnames(counts.t))
@@ -32,9 +34,26 @@ cts <- as.matrix(tibble::column_to_rownames(counts.t, var = "peak.coord"))
 ```{r}
 population <- colnames(cts)
 
-celltype <- factor(c("Astrocyte", "Endothelial Cell", rep("Glutamatergic Neuron", 3), rep("GABAergic Neuron", 4), "Microglia", rep("Oligodendrocyte", 3), "Oligodendrocyte Precursor Cell", rep("iMicroglia", 4), rep("iFbN", 3)))
+celltype <- factor(c(rep("Oligodendrocyte", 2),
+                     "Glutamatergic Neuron",
+                     "Astrocyte",
+                     "Microglia",
+                     "Oligodendrocyte Precursor Cell",
+                     "Glutamatergic Neuron",
+                     rep("GABAergic Neuron", 2),
+                     rep("Glutamatergic Neuron", 2),
+                     "GABAergic Neuron",
+                     "Glutamatergic Neuron",
+                     "GABAergic Neuron",
+                     "Astrocyte",
+                     "Vascular Cell",
+                     rep("Glutamatergic Neuron", 4),
+                     "GABAergic Neuron",
+                     "Glutamatergic Neuron",
+                     rep("iMicroglia", 4),
+                     rep("iFbN", 3)))
 
-source <- factor(c(rep("Brain_FC", 14), rep("iPSC_PPMI", 4), rep("iPSC_33i", 3)))
+source <- factor(c(rep("Brain_FC", 22), rep("iPSC_PPMI", 4), rep("iPSC_33i", 3)))
 
 coldata <- data.frame(population, celltype, source)
 coldata <- tibble::column_to_rownames(coldata, var = "population")
@@ -45,7 +64,7 @@ all(rownames(coldata) %in% colnames(cts))
 all(rownames(coldata) == colnames(cts))
 ```
 
-# Checkout data
+# Check out data
 ```{r, message=F, warning=F}
 dds <- DESeqDataSetFromMatrix(countData = cts, colData = coldata, design = ~ celltype)
 dds
@@ -63,14 +82,13 @@ rld <- rlog(dds, blind = TRUE)
 plotPCA(rld, intgroup = "celltype")
 ```
 
-## Hierarchical clutsering
+## hierarchical clutsering
 ```{r, fig.width=8, fig.height=6}
 rld.mat <- assay(rld)
 rld.cor <- cor(rld.mat)
 rld.cor
 ```
 
-## Genome-wide accessibility correlation iMGL.3411 vs brain MGL.4
 ```{r}
 rld.df <- as.data.frame(rld.mat)
 
@@ -78,7 +96,7 @@ ct.iMGL.3411vsMGL.4 <- cor.test(rld.df$iMGL.3411, rld.df$MGL.4, method = "pearso
 print(ct.iMGL.3411vsMGL.4, digits = 10)
 ```
 
-```{r}
+```{r, fig.width = 10, fig.height = 7}
 newCols <- colorRampPalette(pals::alphabet2(length(unique(coldata$celltype))))
 mycolors <- newCols(length(unique(coldata$celltype)))
 names(mycolors) <- unique(coldata$celltype)
@@ -90,11 +108,18 @@ names(mycolors2) <- unique(coldata$source)
 
 mycolors <- list(celltype = mycolors, source = mycolors2)
 
-pheatmap(rld.cor, annotation = coldata,
+p1 <- pheatmap(rld.cor, annotation = coldata,
          color = hcl.colors(12, "Plasma"),
          border_color = NA,
          fontsize = 10, fontsize_row = 10, height=20,
          annotation_colors = mycolors)
+
+#ggsave("plots/DESeq2_snATACseq_vs_bulkATACseq_heatmap.png", plot = p1, width = 10, height = 7)
+#ggsave("plots/DESeq2_snATACseq_vs_bulkATACseq_heatmap.svg", plot = p1, width = 10, height = 7)
+p1
 ```
+
+
+
 
 
