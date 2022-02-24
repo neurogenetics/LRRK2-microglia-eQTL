@@ -1,0 +1,720 @@
+---
+title: "snATACseq_LRRK2_da"
+output: html_document
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggpubr)
+```
+
+# Pull average expression of LRRK2 per donor in each cluster
+```{r}
+CCvsTT_LRRK2_av.expression <- read.csv("Set12/output/Set12_av_LRRK2_accessibility_per_donor.csv")
+CCvsTT_LRRK2 <- as_tibble(CCvsTT_LRRK2_av.expression)
+```
+
+# Pull out cluster info for each donor
+```{r}
+S5079_TT <- CCvsTT_LRRK2 %>% select(contains("S5079"))
+S1230_TT <- CCvsTT_LRRK2 %>% select(contains("S1230"))
+S4022_TT <- CCvsTT_LRRK2 %>% select(contains("S4022"))
+S4924_TT <- CCvsTT_LRRK2 %>% select(contains("S4924"))
+
+S1135_CT <- CCvsTT_LRRK2 %>% select(contains("S1135"))
+S1209_CT <- CCvsTT_LRRK2 %>% select(contains("S1209"))
+S4724_CT <- CCvsTT_LRRK2 %>% select(contains("S4724"))
+S5123_CT <- CCvsTT_LRRK2 %>% select(contains("S5123"))
+
+S794_CC <- CCvsTT_LRRK2 %>% select(contains("S794"))
+S1274_CC <- CCvsTT_LRRK2 %>% select(contains("S1274"))
+S630_CC <- CCvsTT_LRRK2 %>% select(contains("S630"))
+S1363_CC <- CCvsTT_LRRK2 %>% select(contains("S1363"))
+```
+
+# Rename columns to be cluster ID only, add donor and genotype as columns
+```{r}
+names(S5079_TT) = gsub(pattern = "_.*", replacement = "", x = names(S5079_TT))
+S5079_TT <- add_column(S5079_TT, Donor = "S5079", Genotype = "TT", .before = TRUE)
+
+names(S1230_TT) = gsub(pattern = "_.*", replacement = "", x = names(S1230_TT))
+S1230_TT <- add_column(S1230_TT, Donor = "S1230", Genotype = "TT", .before = TRUE)
+
+names(S4022_TT) = gsub(pattern = "_.*", replacement = "", x = names(S4022_TT))
+S4022_TT <- add_column(S4022_TT, Donor = "S4022", Genotype = "TT", .before = TRUE)
+
+names(S4924_TT) = gsub(pattern = "_.*", replacement = "", x = names(S4924_TT))
+S4924_TT <- add_column(S4924_TT, Donor = "S4924", Genotype = "TT", .before = TRUE)
+
+
+names(S1135_CT) = gsub(pattern = "_.*", replacement = "", x = names(S1135_CT))
+S1135_CT <- add_column(S1135_CT, Donor = "S1135", Genotype = "CT", .before = TRUE)
+
+names(S1209_CT) = gsub(pattern = "_.*", replacement = "", x = names(S1209_CT))
+S1209_CT <- add_column(S1209_CT, Donor = "S1209", Genotype = "CT", .before = TRUE)
+
+names(S4724_CT) = gsub(pattern = "_.*", replacement = "", x = names(S4724_CT))
+S4724_CT <- add_column(S4724_CT, Donor = "S4724", Genotype = "CT", .before = TRUE)
+
+names(S5123_CT) = gsub(pattern = "_.*", replacement = "", x = names(S5123_CT))
+S5123_CT <- add_column(S5123_CT, Donor = "S5123", Genotype = "CT", .before = TRUE)
+
+
+names(S794_CC) = gsub(pattern = "_.*", replacement = "", x = names(S794_CC))
+S794_CC <- add_column(S794_CC, Donor = "S794", Genotype = "CC", .before = TRUE)
+
+names(S1274_CC) = gsub(pattern = "_.*", replacement = "", x = names(S1274_CC))
+S1274_CC <- add_column(S1274_CC, Donor = "S1274", Genotype = "CC", .before = TRUE)
+
+names(S630_CC) = gsub(pattern = "_.*", replacement = "", x = names(S630_CC))
+S630_CC <- add_column(S630_CC, Donor = "S630", Genotype = "CC", .before = TRUE)
+
+names(S1363_CC) = gsub(pattern = "_.*", replacement = "", x = names(S1363_CC))
+S1363_CC <- add_column(S1363_CC, Donor = "S1363", Genotype = "CC", .before = TRUE)
+```
+
+# Join
+```{r echo=T, results = "hide", message = FALSE, warning = FALSE}
+CCvsTT_LRRK2_sorted <- full_join(S5079_TT, S1230_TT)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S794_CC)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S1274_CC)
+
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S4022_TT)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S4924_TT)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S1135_CT)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S1209_CT)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S4724_CT)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S5123_CT)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S630_CC)
+CCvsTT_LRRK2_sorted <- full_join(CCvsTT_LRRK2_sorted, S1363_CC)
+```
+
+# Make boxplot for largest microglia population, in which we observe rs76904798:LRRK2 QTL
+```{r}
+MGL.4 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, MGL.4)
+
+p1 <- ggplot(MGL.4, aes(Genotype, MGL.4)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in MGL.4", y = "Average LRRK2 Expression") +
+  theme_classic()
+#ggsave("Set12/plots/avLRRK2_perdonor_boxplot_MGL4.png", plot = p1, width = 3, height = 3)
+#ggsave("Set12/plots/avLRRK2_perdonor_boxplot_MGL4.svg", plot = p1, width = 3, height = 3)
+p1
+```
+
+```{r}
+anova(lm(MGL.4 ~ Genotype, data = MGL.4))
+```
+
+# Regression model
+```{r}
+MGL.4 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "MGL.4",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 1.5, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+```{r}
+MGL.4num <- MGL.4 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2))
+
+ct.MGL4num <- cor.test(MGL.4num$Num.min.alleles, MGL.4num$MGL.4, method = "pearson")
+print(ct.MGL4num, digits = 10)
+```
+
+# AST.3
+```{r}
+AST.3 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, AST.3)
+
+p2 <- ggplot(AST.3, aes(Genotype, AST.3)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in AST.3", y = "Average LRRK2 Expression") +
+  theme_classic()
+
+#ggsave(file = "Set12/plots/avLRRK2_perdonor_boxplot_AST3.png", plot = p2, width = 3, height = 3, dpi = 300)
+#ggsave(file = "Set12/plots/avLRRK2_perdonor_boxplot_AST3.svg", plot = p2, width = 3, height = 3)
+p2
+```
+
+# Regression model
+```{r}
+AST.3 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "AST.3",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+```{r}
+AST.3num <- AST.3 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2))
+
+ct.AST3num <- cor.test(AST.3num$Num.min.alleles, AST.3num$AST.3, method = "pearson")
+print(ct.AST3num, digits = 10)
+```
+
+# AST.14
+```{r}
+AST.14 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, AST.14)
+
+p3 <- ggplot(AST.14, aes(Genotype, AST.14)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in AST.14", y = "Average LRRK2 Expression") +
+  theme_classic()
+
+#ggsave(file = "Set12/plots/avLRRK2_perdonor_boxplot_AST14.png", plot = p3, width = 3, height = 3, dpi = 300)
+#ggsave(file = "Set12/plots/avLRRK2_perdonor_boxplot_AST14.svg", plot = p3, width = 3, height = 3)
+p3
+```
+
+# Regression model
+```{r}
+AST.14 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "AST.14",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+```{r}
+AST.14num <- AST.14 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2))
+
+ct.AST14num <- cor.test(AST.14num$Num.min.alleles, AST.14num$AST.14, method = "pearson")
+print(ct.AST14num, digits = 10)
+```
+
+# OPC.5
+```{r}
+OPC.5 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, OPC.5)
+
+ggplot(OPC.5, aes(Genotype, OPC.5)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in OPC.5", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+OPC.5 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "OPC.5",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# VC.15
+```{r}
+VC.15 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, VC.15)
+
+p4 <- ggplot(VC.15, aes(Genotype, VC.15)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in VC.15", y = "Average LRRK2 Expression") +
+  theme_classic()
+
+#ggsave(file = "Set12/plots/avLRRK2_perdonor_boxplot_VC15.png", plot = p4, width = 3, height = 3, dpi = 300)
+#ggsave(file = "Set12/plots/avLRRK2_perdonor_boxplot_VC15.svg", plot = p4, width = 3, height = 3)
+p4
+```
+
+# Regression model
+```{r}
+VC.15 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "VC.15",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+```{r}
+VC.15num <- VC.15 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2))
+
+ct.VC15num <- cor.test(VC.15num$Num.min.alleles, VC.15num$VC.15, method = "pearson")
+print(ct.VC15num, digits = 10)
+```
+
+# ODC.0
+```{r}
+ODC.0 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ODC.0)
+
+ggplot(ODC.0, aes(Genotype, ODC.0)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ODC.0", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ODC.0 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ODC.0",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ODC.2
+```{r}
+ODC.1 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ODC.1)
+
+ggplot(ODC.1, aes(Genotype, ODC.1)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ODC.1", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ODC.1 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ODC.1",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.2
+```{r}
+ExN.2 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.2)
+
+ggplot(ExN.2, aes(Genotype, ExN.2)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.2", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.2 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.2",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.6
+```{r}
+ExN.6 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.6)
+
+ggplot(ExN.6, aes(Genotype, ExN.6)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.6", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.6 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.6",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.9
+```{r}
+ExN.9 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.9)
+
+ggplot(ExN.9, aes(Genotype, ExN.9)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.9", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.9 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.9",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.10
+```{r}
+ExN.10 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.10)
+
+ggplot(ExN.10, aes(Genotype, ExN.10)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.10", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.10 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.10",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.12
+```{r}
+ExN.12 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.12)
+
+ggplot(ExN.12, aes(Genotype, ExN.12)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.12", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.12 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.12",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.16
+```{r}
+ExN.16 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.16)
+
+ggplot(ExN.16, aes(Genotype, ExN.16)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.16", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.16 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.16",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.17
+```{r}
+ExN.17 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.17)
+
+ggplot(ExN.17, aes(Genotype, ExN.17)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.17", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.17 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.17",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.18
+```{r}
+ExN.18 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.18)
+
+ggplot(ExN.18, aes(Genotype, ExN.18)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.18", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.18 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.18",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.19
+```{r}
+ExN.19 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.19)
+
+ggplot(ExN.19, aes(Genotype, ExN.19)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.19", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.19 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.19",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# ExN.21
+```{r}
+ExN.21 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, ExN.21)
+
+ggplot(ExN.21, aes(Genotype, ExN.21)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in ExN.21", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+ExN.21 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "ExN.21",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# InN.7
+```{r}
+InN.7 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, InN.7)
+
+ggplot(InN.7, aes(Genotype, InN.7)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in InN.7", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+InN.7 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "InN.7",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# InN.8
+```{r}
+InN.8 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, InN.8)
+
+ggplot(InN.8, aes(Genotype, InN.8)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in InN.8", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+InN.8 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "InN.8",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# InN.11
+```{r}
+InN.11 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, InN.11)
+
+ggplot(InN.11, aes(Genotype, InN.11)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in InN.11", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+InN.11 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "InN.11",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# InN.13
+```{r}
+InN.13 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, InN.13)
+
+ggplot(InN.13, aes(Genotype, InN.13)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in InN.13", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+InN.13 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "InN.13",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# InN.20
+```{r}
+InN.20 <- CCvsTT_LRRK2_sorted %>% select(Donor, Genotype, InN.20)
+
+ggplot(InN.20, aes(Genotype, InN.20)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 3, stroke = 1, width = 0.1) +
+  labs(title = "LRRK2 expression per Donor in InN.20", y = "Average LRRK2 Expression") +
+  theme_classic()
+```
+
+# Regression model
+```{r}
+InN.20 %>% mutate(Num.min.alleles = case_when(
+  Genotype == "CC" ~ 0,
+  Genotype == "CT" ~ 1,
+  Genotype == "TT" ~ 2)) %>%
+  ggscatter(x = "Num.min.alleles", y = "InN.20",
+          color = "black", shape = 21, size = 3, add = "reg.line", 
+          add.params = list(color = "blue", fill = "lightgray"),
+          conf.int = TRUE, cor.coef = TRUE, cor.coeff.args = list(method = "pearson", label.x = 0.1, label.sep = "\n")) +
+  theme_classic() +
+  labs(x = "Number of Minor Alleles", y = "Average LRRK2 Expression")
+```
+
+# Put all boxplots on same scale
+```{r}
+CCvsTT_LRRK2_sorted <- CCvsTT_LRRK2_sorted %>% 
+  pivot_longer(c(ODC.0, ODC.1, ExN.2, AST.3, MGL.4, OPC.5, ExN.6, InN.7, InN.8, ExN.9, ExN.10, InN.11, ExN.12, InN.13, AST.14, VC.15, ExN.16, ExN.17, ExN.18, ExN.19, InN.20, ExN.21), "Celltype", values_to = "LRRK2_accessibility")
+
+CCvsTT_LRRK2_sorted$Celltype <- factor(CCvsTT_LRRK2_sorted$Celltype, levels = c("MGL.4", "VC.15", "AST.3", "AST.14","OPC.5", "ODC.0", "ODC.1", "ExN.2", "ExN.6", "ExN.9", "ExN.10", "ExN.12", "ExN.16", "ExN.17", "ExN.18", "ExN.19", "ExN.21", "InN.7", "InN.8", "InN.11", "InN.13", "InN.20"))
+```
+
+```{r}
+p15 <- ggplot(CCvsTT_LRRK2_sorted, aes(Genotype, LRRK2_accessibility)) +
+  geom_boxplot() +
+  geom_jitter(shape = 21, color = "black", fill = "gray", size = 2, stroke = 0.5, width = 0.1) +
+  labs(x = "rs76904798 genotype", y = "Average LRRK2 Accessibility") +
+  facet_wrap(~ Celltype, nrow = 3) +
+  theme_classic()
+ggsave(file = "Set12/plots/SET12_avLRRK2_perdonor_allcelltypes_boxplot.png", plot = p15, width = 10, height = 6, dpi = 300)
+ggsave(file = "Set12/plots/SET12_avLRRK2_perdonor_allcelltypes_boxplot.svg", plot = p15, width = 10, height = 6)
+p15
+```
+
+
